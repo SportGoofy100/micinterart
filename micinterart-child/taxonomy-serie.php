@@ -11,6 +11,7 @@ if (!defined('ABSPATH')) {
 
 get_header();
 
+$is_en = micinterart_is_english();
 $term = get_queried_object();
 ?>
 
@@ -20,7 +21,7 @@ $term = get_queried_object();
         <h1 class="page-title">
             <?php
             printf(
-                __('Serie: %s', 'micinterart'),
+                $is_en ? 'Series: %s' : __('Serie: %s', 'micinterart'),
                 '<span class="serie-name">' . esc_html($term->name) . '</span>'
             );
             ?>
@@ -42,10 +43,10 @@ $term = get_queried_object();
             ?>
             <div class="serie-count">
                 <?php
-                printf(
-                    _n('%s Werk in dieser Serie', '%s Werke in dieser Serie', $count, 'micinterart'),
-                    '<strong>' . number_format_i18n($count) . '</strong>'
-                );
+                $series_count_text = $is_en
+                    ? sprintf(_n('%s artwork in this series', '%s artworks in this series', $count, 'micinterart'), '<strong>' . number_format_i18n($count) . '</strong>')
+                    : sprintf(_n('%s Werk in dieser Serie', '%s Werke in dieser Serie', $count, 'micinterart'), '<strong>' . number_format_i18n($count) . '</strong>');
+                echo wp_kses_post($series_count_text);
                 ?>
             </div>
         <?php endif; ?>
@@ -85,9 +86,9 @@ $term = get_queried_object();
                             
                             <?php
                             // Meta-Informationen
-                            $year = get_post_meta($post_id, '_werk_year', true);
-                            $dimensions = get_post_meta($post_id, '_werk_dimensions', true);
-                            $materials = get_post_meta($post_id, '_werk_materials', true);
+                            $year = micinterart_get_translated_meta($post_id, '_werk_year', true);
+                            $dimensions = micinterart_get_translated_meta($post_id, '_werk_dimensions', true);
+                            $materials = micinterart_get_translated_meta($post_id, '_werk_materials', true);
                             
                             if ($year || $dimensions || $materials) :
                                 ?>
@@ -137,9 +138,9 @@ $term = get_queried_object();
     <?php else : ?>
         
         <div class="no-results">
-            <p><?php echo esc_html__('Keine Werke in dieser Serie gefunden.', 'micinterart'); ?></p>
+            <p><?php echo esc_html($is_en ? 'No artworks found in this series.' : __('Keine Werke in dieser Serie gefunden.', 'micinterart')); ?></p>
             <a href="<?php echo esc_url(get_post_type_archive_link('werk')); ?>" class="button">
-                <?php echo esc_html__('Alle Werke ansehen', 'micinterart'); ?>
+                <?php echo esc_html($is_en ? 'View all artworks' : __('Alle Werke ansehen', 'micinterart')); ?>
             </a>
         </div>
         
@@ -156,7 +157,7 @@ $term = get_queried_object();
     if ($all_series && !is_wp_error($all_series) && !empty($all_series)) :
         ?>
         <aside class="other-series">
-            <h3><?php echo esc_html__('Weitere Serien', 'micinterart'); ?></h3>
+            <h3><?php echo esc_html($is_en ? 'Other series' : __('Weitere Serien', 'micinterart')); ?></h3>
             <ul class="series-list">
                 <?php foreach ($all_series as $other_serie) : ?>
                     <li>

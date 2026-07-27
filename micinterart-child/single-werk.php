@@ -474,26 +474,12 @@ $is_en = (function_exists('pll_current_language') && pll_current_language() === 
 
     <?php
     // Maße & Materialien
-    $materials  = get_post_meta(get_the_ID(), '_werk_materials', true);
-    $dimensions = get_post_meta(get_the_ID(), '_werk_dimensions', true);
-    $year       = get_post_meta(get_the_ID(), '_werk_year', true);
-    $status     = get_post_meta(get_the_ID(), '_werk_status', true) ?: 'verfuegbar';
-    $represented = get_post_meta(get_the_ID(), '_werk_represented', true) === 'yes';
+    $materials  = micinterart_get_translated_meta(get_the_ID(), '_werk_materials', true);
+    $dimensions = micinterart_get_translated_meta(get_the_ID(), '_werk_dimensions', true);
+    $year       = micinterart_get_translated_meta(get_the_ID(), '_werk_year', true);
+    $represented = micinterart_get_translated_meta(get_the_ID(), '_werk_represented', true);
 
-    $status_labels = $is_en ? [
-        'verfuegbar'   => 'Available',
-        'reserviert'   => 'Reserved',
-        'verkauft'     => 'Sold',
-        'privatbesitz' => 'Private Collection',
-    ] : [
-        'verfuegbar'   => 'Verfügbar',
-        'reserviert'   => 'Reserviert',
-        'verkauft'     => 'Verkauft',
-        'privatbesitz' => 'Privatbesitz',
-    ];
-    $status_label = isset($status_labels[$status]) ? $status_labels[$status] : $status;
-
-    if ($materials || $dimensions || $year || $status || $represented) {
+    if ($materials || $dimensions || $year || $represented) {
         echo '<div class="werk-meta">';
         if ($year) {
             echo '<div class="werk-meta-item">';
@@ -513,15 +499,10 @@ $is_en = (function_exists('pll_current_language') && pll_current_language() === 
             echo '<span class="werk-meta-value">'.esc_html($materials).'</span>';
             echo '</div>';
         }
-        
-        echo '<div class="werk-meta-item">';
-        echo '<span class="werk-meta-label">' . ($is_en ? 'Status' : 'Status') . '</span>';
-        echo '<span class="werk-meta-value"><span class="werk-status-badge status-' . esc_attr($status) . '">' . esc_html($status_label) . '</span></span>';
-        echo '</div>';
 
         if ($represented) {
             echo '<div class="werk-meta-item" style="grid-column: 1 / -1;">';
-            echo '<span class="werk-represented-badge">👑 ' . ($is_en ? 'Represented by Galerie Helligkeit' : 'Vertreten durch Galerie Helligkeit') . '</span>';
+            echo '<span class="werk-represented-badge">👑 ' . ($is_en ? 'Represented by ' : 'Vertreten durch ') . esc_html($represented) . '</span>';
             echo '</div>';
         }
         echo '</div>';
@@ -530,7 +511,7 @@ $is_en = (function_exists('pll_current_language') && pll_current_language() === 
 
     <?php
     // Weitere Bilder Galerie
-    $additional_images = get_post_meta(get_the_ID(), '_werk_additional_images', true);
+    $additional_images = micinterart_get_translated_meta(get_the_ID(), '_werk_additional_images', true);
     
     if (!empty($additional_images) && is_array($additional_images)) :
     ?>

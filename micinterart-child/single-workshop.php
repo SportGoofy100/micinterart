@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 get_header();
+$is_en = micinterart_is_english();
 ?>
 <?php
 /**
@@ -21,6 +22,8 @@ get_header();
  */
 if (!function_exists('micinterart_render_thema_erwartet_box')) {
 function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
+    global $is_en;
+
     // Hilfsfunktion: Thema → Workshop → Default
     $get_f = function($nr, $key, $default) use ($thema_id, $workshop_id) {
         $val = get_post_meta($thema_id, "_workshop_erwartet_{$nr}_{$key}", true);
@@ -55,7 +58,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
     ?>
     
     <div style="background:#f9f9f9; border-left:5px solid #d4a574; border-radius:8px; padding:20px; margin-top:15px;">
-        <strong style="font-size:1em; color:#2c2c2c; display:block; margin-bottom:12px;">✨ Was dich erwartet</strong>
+        <strong style="font-size:1em; color:#2c2c2c; display:block; margin-bottom:12px;">✨ <?php echo esc_html($is_en ? 'What to expect' : 'Was dich erwartet'); ?></strong>
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;">
 
             <div style="display:flex;align-items:start;gap:8px;">
@@ -69,8 +72,8 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
             <div style="display:flex;align-items:start;gap:8px;">
                 <span>👥</span>
                 <div style="font-size:0.9em;">
-                    <strong>Kleine Gruppen</strong><br>
-                    <span style="color:#666;">Max. <?php echo esc_html($max_teilnehmer); ?> Teilnehmer – persönliche Betreuung garantiert</span>
+                    <strong><?php echo esc_html($is_en ? 'Small groups' : 'Kleine Gruppen'); ?></strong><br>
+                    <span style="color:#666;"><?php echo esc_html($is_en ? 'Max. ' . $max_teilnehmer . ' participants – personal guidance guaranteed' : 'Max. ' . $max_teilnehmer . ' Teilnehmer – persönliche Betreuung garantiert'); ?></span>
                 </div>
             </div>
 
@@ -101,7 +104,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
             <div style="display:flex;align-items:start;gap:8px;">
                 <span>🚗</span>
                 <div style="font-size:0.9em;">
-                    <strong>Kostenlose Parkplätze</strong><br>
+                    <strong><?php echo esc_html($is_en ? 'Free parking' : 'Kostenlose Parkplätze'); ?></strong><br>
                     <span style="color:#666;"><?php echo esc_html($parkplatz_text); ?></span>
                 </div>
             </div>
@@ -392,22 +395,22 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
             $post_id = get_the_ID();
             
             // Alle Meta-Daten holen
-            $datum = get_post_meta($post_id, '_workshop_datum', true);
-            $startzeit = get_post_meta($post_id, '_workshop_startzeit', true);
-            $dauer_stunden = get_post_meta($post_id, '_workshop_dauer_stunden', true);
+            $datum = micinterart_get_translated_meta($post_id, '_workshop_datum', true);
+            $startzeit = micinterart_get_translated_meta($post_id, '_workshop_startzeit', true);
+            $dauer_stunden = micinterart_get_translated_meta($post_id, '_workshop_dauer_stunden', true);
             
-            $alter_von = get_post_meta($post_id, '_workshop_alter_von', true);
-            $alter_bis = get_post_meta($post_id, '_workshop_alter_bis', true);
-            $preis_string = get_post_meta($post_id, '_workshop_preis', true);
-            $preis_info = get_post_meta($post_id, '_workshop_preis_info', true);
-            $ort = get_post_meta($post_id, '_workshop_ort', true);
-            $adresse = get_post_meta($post_id, '_workshop_adresse', true);
-            $status = get_post_meta($post_id, '_workshop_status', true);
-            $max_teilnehmer = get_post_meta($post_id, '_workshop_max_teilnehmer', true);
-            $anmeldung_email = get_post_meta($post_id, '_workshop_anmeldung_email', true);
-            $anmeldung_telefon = get_post_meta($post_id, '_workshop_anmeldung_telefon', true);
-            $anmeldung_link = get_post_meta($post_id, '_workshop_anmeldung_link', true);
-            $flyer_id = get_post_meta($post_id, '_workshop_flyer', true);
+            $alter_von = micinterart_get_translated_meta($post_id, '_workshop_alter_von', true);
+            $alter_bis = micinterart_get_translated_meta($post_id, '_workshop_alter_bis', true);
+            $preis_string = micinterart_get_translated_meta($post_id, '_workshop_preis', true);
+            $preis_info = micinterart_get_translated_meta($post_id, '_workshop_preis_info', true);
+            $ort = micinterart_get_translated_meta($post_id, '_workshop_ort', true);
+            $adresse = micinterart_get_translated_meta($post_id, '_workshop_adresse', true);
+            $status = micinterart_get_translated_meta($post_id, '_workshop_status', true);
+            $max_teilnehmer = micinterart_get_translated_meta($post_id, '_workshop_max_teilnehmer', true);
+            $anmeldung_email = micinterart_get_translated_meta($post_id, '_workshop_anmeldung_email', true);
+            $anmeldung_telefon = micinterart_get_translated_meta($post_id, '_workshop_anmeldung_telefon', true);
+            $anmeldung_link = micinterart_get_translated_meta($post_id, '_workshop_anmeldung_link', true);
+            $flyer_id = micinterart_get_translated_meta($post_id, '_workshop_flyer', true);
             
             
             if (empty($status)) $status = 'geplant';
@@ -431,7 +434,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
             // Dynamische Texte je nach Typ
             $price_label = $is_kinderworkshop ? 'Preis pro Kind' : 'Preis pro Person';
             $termin_label = $is_event ? 'Event-Termin' : 'Workshop-Termin';
-            $anmeldung_title = $is_event ? 'Jetzt für den Workshop anmelden!' : 'Jetzt anmelden!';
+            $anmeldung_title = $is_event ? ($is_en ? 'Register for the workshop now!' : 'Jetzt für den Workshop anmelden!') : ($is_en ? 'Register now!' : 'Jetzt anmelden!');
             $nach_absprache_text = $is_event ? 'Event findet nach Absprache statt' : 'Workshop findet nach Absprache statt';
             $nach_absprache_beschreibung = $is_event 
                 ? 'Dieses Event findet zu einem individuell vereinbarten Termin statt. Kontaktiere mich gerne, um einen passenden Termin zu finden!' 
@@ -463,8 +466,8 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
 
             // Aktuelle Werte für Ort und Zeit basierend auf dem nächsten Thema ermitteln
             $active_ort = $ort;
-            $active_von = get_post_meta($post_id, '_workshop_uhrzeit_von', true);
-            $active_bis = get_post_meta($post_id, '_workshop_uhrzeit_bis', true);
+            $active_von = micinterart_get_translated_meta($post_id, '_workshop_uhrzeit_von', true);
+            $active_bis = micinterart_get_translated_meta($post_id, '_workshop_uhrzeit_bis', true);
             $heute_comp = new DateTime('today');
 
             if (!empty($themen_termine)) {
@@ -510,7 +513,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
 
             // Zentrale Prüfung: Ist eine Anmeldung aktuell überhaupt möglich?
             $kann_anmelden = ($status !== 'beendet' && $status !== 'abgesagt' && $status !== 'ausgebucht');
-            $anmelden_button_text = $is_event ? 'Jetzt anmelden' : 'Jetzt anmelden';
+            $anmelden_button_text = $is_en ? 'Register now' : 'Jetzt anmelden';
             ?>
 
             <article id="post-<?php echo esc_attr($post_id); ?>" <?php post_class('workshop-single'); ?>>
@@ -636,7 +639,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                 if (!empty($first_content)) :
                                                     ?>
                                                     <p style="margin:5px 0 0 0; font-size:0.95em; color:#666; line-height:1.4;">
-                                                        <?php echo wp_trim_words($first_content, 10, '... <span style="color:#d4a574; font-weight:600;">mehr erfahren</span>'); ?>
+                                                        <?php echo wp_trim_words($first_content, 10, '... <span style="color:#d4a574; font-weight:600;">' . ($is_en ? 'read more' : 'mehr erfahren') . '</span>'); ?>
                                                     </p>
                                                 <?php endif; ?>
                                                 <?php if (!empty($first['preis'])) : ?>
@@ -650,7 +653,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                 $fp_frei = ($fp_max > 0) ? max(0, $fp_max - $fp_curr) : null;
                                                 if (false) /* PLAETZE AUSGEBLENDET */ :
                                                     if ($fp_frei <= 0) : ?>
-                                                        <span style="display:inline-block;margin-top:6px;padding:3px 10px;background:#ffebee;color:#d32f2f;border-radius:12px;font-size:0.85em;font-weight:700;">Ausgebucht</span>
+                                                        <span style="display:inline-block;margin-top:6px;padding:3px 10px;background:#ffebee;color:#d32f2f;border-radius:12px;font-size:0.85em;font-weight:700;"><?php echo esc_html($is_en ? 'Fully booked' : 'Ausgebucht'); ?></span>
                                                     <?php elseif ($fp_frei <= 3) : ?>
                                                         <span style="display:inline-block;margin-top:6px;padding:3px 10px;background:#fff3e0;color:#f57c00;border-radius:12px;font-size:0.85em;font-weight:700;">Nur noch <?php echo esc_html($fp_frei); ?> <?php echo ($fp_frei === 1) ? 'Platz' : 'Plätze'; ?> frei!</span>
                                                     <?php else : ?>
@@ -703,7 +706,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                         if (!empty($t_content)) :
                                                             ?>
                                                             <div style="margin-top:5px; font-size:0.9em; color:#666; line-height:1.4;">
-                                                                <?php echo wp_trim_words($t_content, 10, '... <span style="color:#d4a574; font-weight:600;">mehr erfahren</span>'); ?>
+                                                                <?php echo wp_trim_words($t_content, 10, '... <span style="color:#d4a574; font-weight:600;">' . ($is_en ? 'read more' : 'mehr erfahren') . '</span>'); ?>
                                                             </div>
                                                         <?php endif; ?>
                                                     </div>
@@ -718,7 +721,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                 $tp_frei = ($tp_max > 0) ? max(0, $tp_max - $tp_curr) : null;
                                                 if (false) /* PLAETZE AUSGEBLENDET */ :
                                                     if ($tp_frei <= 0) : ?>
-                                                        <div style="margin-top:6px;"><span style="padding:3px 10px;background:#ffebee;color:#d32f2f;border-radius:12px;font-size:0.85em;font-weight:700;">Ausgebucht</span></div>
+                                                        <div style="margin-top:6px;"><span style="padding:3px 10px;background:#ffebee;color:#d32f2f;border-radius:12px;font-size:0.85em;font-weight:700;"><?php echo esc_html($is_en ? 'Fully booked' : 'Ausgebucht'); ?></span></div>
                                                     <?php elseif ($tp_frei <= 3) : ?>
                                                         <div style="margin-top:6px;"><span style="padding:3px 10px;background:#fff3e0;color:#f57c00;border-radius:12px;font-size:0.85em;font-weight:700;">Nur noch <?php echo esc_html($tp_frei); ?> <?php echo ($tp_frei === 1) ? 'Platz' : 'Plätze'; ?> frei!</span></div>
                                                     <?php else : ?>
@@ -740,7 +743,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                                data-thema="<?php echo esc_attr($t_post->post_title); ?>"
                                                                onclick="event.stopPropagation();"
                                                                style="display:inline-flex; align-items:center; gap:8px; padding:10px 22px; background:#d4a574; color:#fff; text-decoration:none; border-radius:6px; font-weight:600; font-size:0.95em;">
-                                                                ✏️ Für dieses Thema anmelden
+                                                                ✏️ <?php echo esc_html($is_en ? 'Register for this topic' : 'Für dieses Thema anmelden'); ?>
                                                             </a>
                                                         </div>
                                                     <?php endif; ?>
@@ -920,7 +923,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                         <h2 class="workshop-anmeldung-title">
                             <?php 
                             if ($status === 'ausgebucht') {
-                                echo $is_event ? 'Event ausgebucht' : 'Workshop ausgebucht';
+                                echo $is_event ? ($is_en ? 'Event fully booked' : 'Event ausgebucht') : ($is_en ? 'Workshop fully booked' : 'Workshop ausgebucht');
                             } else {
                                 echo esc_html($anmeldung_title);
                             }
@@ -931,9 +934,9 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                             <p>
                                 <?php 
                                 if ($is_event) {
-                                    echo 'Dieses Event ist leider bereits ausgebucht. Schauen Sie sich gerne unsere anderen Events an!';
+                                    echo $is_en ? 'This event is already fully booked. Please feel free to browse our other events.' : 'Dieses Event ist leider bereits ausgebucht. Schauen Sie sich gerne unsere anderen Events an!';
                                 } else {
-                                    echo 'Dieser Workshop ist leider bereits ausgebucht. Schauen Sie sich gerne unsere anderen Workshops an!';
+                                    echo $is_en ? 'This workshop is already fully booked. Please feel free to browse our other workshops.' : 'Dieser Workshop ist leider bereits ausgebucht. Schauen Sie sich gerne unsere anderen Workshops an!';
                                 }
                                 ?>
                             </p>

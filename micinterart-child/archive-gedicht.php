@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
 }
 
 get_header();
+$is_en = micinterart_is_english();
 ?>
 
 <style>
@@ -206,7 +207,7 @@ get_header();
 <main id="primary" class="site-main">
     <div class="gedichte-zettel-container">
         
-        <h1 class="gedichte-page-title">Meine Gedichte</h1>
+        <h1 class="gedichte-page-title"><?php echo esc_html($is_en ? 'My Poems' : 'Meine Gedichte'); ?></h1>
 
         <?php if (have_posts()) : ?>
             
@@ -315,12 +316,12 @@ get_header();
                                 ?>
                                 <a href="<?php echo esc_url($werk_link); ?>" class="gedicht-werk-link">
                                     <span>🔗</span>
-                                    <span>Zum Werk: <?php echo esc_html($werk_title); ?></span>
+                                    <span><?php echo esc_html($is_en ? 'To the artwork:' : 'Zum Werk:'); ?> <?php echo esc_html($werk_title); ?></span>
                                 </a>
                             <?php endif; ?>
                             
                             <a href="<?php the_permalink(); ?>" class="gedicht-lesen-link">
-                                Vollständiges Gedicht lesen →
+                                <?php echo esc_html($is_en ? 'Read the full poem →' : 'Vollständiges Gedicht lesen →'); ?>
                             </a>
                         </footer>
                         
@@ -334,9 +335,9 @@ get_header();
                 <?php
                 the_posts_pagination([
                     'mid_size'           => 2,
-                    'prev_text'          => '← Zurück',
-                    'next_text'          => 'Weiter →',
-                    'screen_reader_text' => 'Gedichte Navigation',
+                    'prev_text'          => $is_en ? '← Back' : '← Zurück',
+                    'next_text'          => $is_en ? 'Next →' : 'Weiter →',
+                    'screen_reader_text' => $is_en ? 'Poems navigation' : 'Gedichte Navigation',
                 ]);
                 ?>
             </div>
@@ -344,7 +345,7 @@ get_header();
         <?php else : ?>
             
             <div class="no-gedichte">
-                <p>Keine Gedichte gefunden.</p>
+                <p><?php echo esc_html($is_en ? 'No poems found.' : 'Keine Gedichte gefunden.'); ?></p>
             </div>
             
         <?php endif; ?>

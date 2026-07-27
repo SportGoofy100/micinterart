@@ -345,45 +345,7 @@ $is_en = (function_exists('pll_current_language') && pll_current_language() === 
 .werk-item:nth-child(5) { animation-delay: 0.5s; }
 .werk-item:nth-child(6) { animation-delay: 0.6s; }
 
-/* Status and Representation Badges */
-.werk-meta-status {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 15px;
-}
-
-.werk-status-badge {
-    display: inline-block;
-    align-self: flex-start;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 0.78em;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-}
-
-.status-verfuegbar {
-    background: #e8f5e9;
-    color: #2e7d32;
-}
-
-.status-reserviert {
-    background: #fff3e0;
-    color: #ef6c00;
-}
-
-.status-verkauft {
-    background: #ffebee;
-    color: #c62828;
-}
-
-.status-privatbesitz {
-    background: #f5f5f5;
-    color: #616161;
-}
-
+/* Representation Badge */
 .werk-represented-badge {
     display: inline-flex;
     align-items: center;
@@ -450,26 +412,12 @@ $is_en = (function_exists('pll_current_language') && pll_current_language() === 
                             
                             <?php
                             // Meta-Informationen
-                            $year = get_post_meta(get_the_ID(), '_werk_year', true);
-                            $dimensions = get_post_meta(get_the_ID(), '_werk_dimensions', true);
-                            $materials = get_post_meta(get_the_ID(), '_werk_materials', true);
-                            $status = get_post_meta(get_the_ID(), '_werk_status', true) ?: 'verfuegbar';
-                            $represented = get_post_meta(get_the_ID(), '_werk_represented', true) === 'yes';
-
-                            $status_labels = $is_en ? [
-                                'verfuegbar'   => 'Available',
-                                'reserviert'   => 'Reserved',
-                                'verkauft'     => 'Sold',
-                                'privatbesitz' => 'Private Collection',
-                            ] : [
-                                'verfuegbar'   => 'Verfügbar',
-                                'reserviert'   => 'Reserviert',
-                                'verkauft'     => 'Verkauft',
-                                'privatbesitz' => 'Privatbesitz',
-                            ];
-                            $status_label = isset($status_labels[$status]) ? $status_labels[$status] : $status;
+                            $year = micinterart_get_translated_meta(get_the_ID(), '_werk_year', true);
+                            $dimensions = micinterart_get_translated_meta(get_the_ID(), '_werk_dimensions', true);
+                            $materials = micinterart_get_translated_meta(get_the_ID(), '_werk_materials', true);
+                            $represented = micinterart_get_translated_meta(get_the_ID(), '_werk_represented', true);
                             
-                            if ($year || $dimensions || $materials || $status || $represented) :
+                            if ($year || $dimensions || $materials || $represented) :
                                 ?>
                                 <div class="werk-meta">
                                     <?php if ($year) : ?>
@@ -484,16 +432,13 @@ $is_en = (function_exists('pll_current_language') && pll_current_language() === 
                                         <span class="werk-materials"><?php echo esc_html($materials); ?></span>
                                     <?php endif; ?>
                                 </div>
-                                <div class="werk-meta-status">
-                                    <span class="werk-status-badge status-<?php echo esc_attr($status); ?>">
-                                        <?php echo esc_html($status_label); ?>
-                                    </span>
-                                    <?php if ($represented) : ?>
+                                <?php if ($represented) : ?>
+                                    <div class="werk-meta-status">
                                         <span class="werk-represented-badge">
-                                            👑 <?php echo $is_en ? 'Represented by Galerie Helligkeit' : 'Vertreten durch Galerie Helligkeit'; ?>
+                                            👑 <?php echo $is_en ? 'Represented by ' : 'Vertreten durch '; ?><?php echo esc_html($represented); ?>
                                         </span>
-                                    <?php endif; ?>
-                                </div>
+                                    </div>
+                                <?php endif; ?>
                             <?php endif; ?>
                             
                             <?php

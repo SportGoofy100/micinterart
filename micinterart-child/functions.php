@@ -14,6 +14,58 @@
 // ============================================================================
 require_once get_stylesheet_directory() . '/includes/theme-setup.php';
 
+/**
+ * Minimale Sprachhilfe für Polylang/Englisch-Fallback.
+ * Dadurch können einzelne Templates ohne großen Aufwand bilingual arbeiten.
+ */
+function micinterart_is_english() {
+    if (function_exists('pll_current_language')) {
+        $lang = pll_current_language();
+        return in_array($lang, ['en', 'en_US', 'en_US.UTF-8', 'en-gb', 'en-GB'], true);
+    }
+
+    return false;
+}
+
+function micinterart_t($de, $en = '') {
+    return micinterart_is_english() ? ($en !== '' ? $en : $de) : $de;
+}
+
+/**
+ * Liefert einen Meta-Wert für die aktuelle Sprache.
+ * Falls Polylang aktiv ist und ein übersetztes Post existiert, wird der Wert
+ * des übersetzten Posts bevorzugt. Für einfache Felder reicht das aus.
+ */
+function micinterart_get_translated_meta($post_id, $meta_key, $single = true) {
+    $value = get_post_meta($post_id, $meta_key, $single);
+
+    if (!function_exists('pll_get_post_translations')) {
+        return $value;
+    }
+
+    $translations = pll_get_post_translations($post_id);
+    if (empty($translations)) {
+        return $value;
+    }
+
+    $current_lang = function_exists('pll_current_language') ? pll_current_language('slug') : '';
+    if ($current_lang === '') {
+        return $value;
+    }
+
+    if (!isset($translations[$current_lang])) {
+        return $value;
+    }
+
+    $translated_id = $translations[$current_lang];
+    if (!$translated_id) {
+        return $value;
+    }
+
+    $translated_value = get_post_meta($translated_id, $meta_key, $single);
+    return $translated_value !== '' ? $translated_value : $value;
+}
+
 // ============================================================================
 // 2. WERK CPT – ADMIN
 //    Custom Columns, Sortierung, Gedicht-Excerpt

@@ -10,6 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 get_header();
+$is_en = micinterart_is_english();
 ?>
 
 <style>
@@ -345,7 +346,7 @@ get_header();
 
                 <?php
                 // Rückverweis zum Werk (oben)
-                $werk_id = get_post_meta($post_id, '_related_werk', true);
+                $werk_id = micinterart_get_translated_meta($post_id, '_related_werk', true);
                 
                 if ($werk_id && get_post_status($werk_id) === 'publish') :
                     $werk_title = get_the_title($werk_id);
@@ -364,8 +365,8 @@ get_header();
                         <div class="werk-info" style="text-align:center;">
                             <span class="dashicons dashicons-admin-links" style="vertical-align:middle;"></span>
                             <?php
-                            printf(
-                                __('Dieses Gedicht gehört zum Werk %s', 'micinterart'),
+                            echo wp_kses_post(
+                                '<span>' . esc_html($is_en ? 'This poem belongs to the artwork ' : 'Dieses Gedicht gehört zum Werk ') . '</span>' .
                                 '<a href="' . esc_url($werk_link) . '" class="werk-link"><strong>' . esc_html($werk_title) . '</strong></a>'
                             );
                             ?>
@@ -385,7 +386,7 @@ get_header();
                         ?>
                         <div class="gedicht-werk-cta">
                             <a href="<?php echo esc_url($werk_link); ?>" class="button">
-                                <?php echo esc_html__('Zum zugehörigen Werk', 'micinterart'); ?> &rarr;
+                                <?php echo esc_html($is_en ? 'View the artwork →' : 'Zum zugehörigen Werk'); ?>
                             </a>
                         </div>
                     <?php endif; ?>
@@ -419,7 +420,7 @@ get_header();
                 <?php
                 // Navigation zu vorherigem/nächstem Gedicht
                 ?>
-                <nav class="gedicht-navigation" aria-label="<?php echo esc_attr__('Gedicht Navigation', 'micinterart'); ?>">
+                <nav class="gedicht-navigation" aria-label="<?php echo esc_attr($is_en ? 'Poem navigation' : 'Gedicht Navigation'); ?>">
                     <div class="nav-links">
                         <?php
                         $prev_post = get_previous_post();
@@ -427,7 +428,7 @@ get_header();
                             ?>
                             <div class="nav-previous">
                                 <a href="<?php echo esc_url(get_permalink($prev_post)); ?>" rel="prev">
-                                    <span class="nav-subtitle">&larr; <?php echo esc_html__('Vorheriges', 'micinterart'); ?></span>
+                                    <span class="nav-subtitle">&larr; <?php echo esc_html($is_en ? 'Previous' : 'Vorheriges'); ?></span>
                                 </a>
                             </div>
                         <?php endif; ?>
@@ -438,7 +439,7 @@ get_header();
                             ?>
                             <div class="nav-next">
                                 <a href="<?php echo esc_url(get_permalink($next_post)); ?>" rel="next">
-                                    <span class="nav-subtitle"><?php echo esc_html__('Nächstes', 'micinterart'); ?> &rarr;</span>
+                                    <span class="nav-subtitle"><?php echo esc_html($is_en ? 'Next' : 'Nächstes'); ?> &rarr;</span>
                                 </a>
                             </div>
                         <?php endif; ?>
@@ -450,7 +451,7 @@ get_header();
                 ?>
                 <div class="gedicht-back-to-archive">
                     <a href="<?php echo esc_url(get_post_type_archive_link('gedicht')); ?>" class="back-link">
-                        &larr; <?php echo esc_html__('Zurück zur Gedichte-Übersicht', 'micinterart'); ?>
+                        &larr; <?php echo esc_html($is_en ? 'Back to the poems overview' : 'Zurück zur Gedichte-Übersicht'); ?>
                     </a>
                 </div>
 

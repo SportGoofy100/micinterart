@@ -46,9 +46,16 @@ class MicinterartGallery {
         add_action('add_meta_boxes', [$this, 'add_metaboxes']);
         add_action('save_post_werk', [$this, 'save_werk_meta']);
         add_action('save_post_werk', [$this, 'save_werk_gallery_meta']);
+        add_action('save_post_werk', [$this, 'sync_werk_on_save'], 20);
         add_action('save_post_gedicht', [$this, 'save_gedicht_meta']);
+        add_action('save_post_gedicht', [$this, 'save_gedicht_relation_meta']);
+        add_action('save_post_gedicht', [$this, 'sync_gedicht_on_save'], 20);
+        add_action('pll_save_post_translations', [$this, 'sync_gedicht_on_polylang_save'], 10, 2);
+        add_action('pll_save_post_translations', [$this, 'sync_werk_on_polylang_save'], 10, 2);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
+        add_action('admin_menu', [$this, 'add_plugin_settings_menu']);
+        add_action('admin_init', [$this, 'register_plugin_settings']);
         
         add_action('wp_ajax_micinterart_get_werk_details', [$this, 'ajax_get_werk_details']);
         add_action('wp_ajax_nopriv_micinterart_get_werk_details', [$this, 'ajax_get_werk_details']);
@@ -351,6 +358,254 @@ class MicinterartGallery {
 
     public function register_gallery_block() {
         register_block_type('micinterart/gallery', ['editor_script' => 'micinterart-block-editor', 'render_callback' => [$this, 'render_gallery_block']]);
+    }
+
+    // ===== POLYLANG SYNCHRONIZATION =====
+    
+    public function sync_werk_on_polylang_save($post_id, $translations) {
+        if (!function_exists('pll_get_post_language')) return;
+        
+        $source_post = get_post($post_id);
+        if (!$source_post || $source_post->post_type !== 'werk') return;
+
+        foreach ($translations as $lang => $translation_id) {
+            if (!$translation_id || $translation_id == $post_id) continue;
+            $this->copy_werk_metadata($post_id, $translation_id);
+        }
+    }
+
+    public function sync_gedicht_on_polylang_save($post_id, $translations) {
+        if (!function_exists('pll_get_post_language')) return;
+        
+        $source_post = get_post($post_id);
+        if (!$source_post || $source_post->post_type !== 'gedicht') return;
+
+        foreach ($translations as $lang => $translation_id) {
+            if (!$translation_id || $translation_id == $post_id) continue;
+            $this->copy_gedicht_metadata($post_id, $translation_id);
+        }
+    }
+
+    public function sync_werk_on_save($post_id) {
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+        if (!function_exists('pll_get_post_language') || !function_exists('pll_get_post_translations')) return;
+
+        $post = get_post($post_id);
+        if (!$post || $post->post_type !== 'werk') return;
+
+        $translations = pll_get_post_translations($post_id);
+        if (empty($translations)) return;
+
+        foreach ($translations as $lang => $trans_id) {
+            if ($trans_id != $post_id && $trans_id > 0) {
+                $this->copy_werk_metadata($trans_id, $post_id);
+                break;
+            }
+        }
+    }
+
+    public function sync_gedicht_on_save($post_id) {
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+        if (!function_exists('pll_get_post_language') || !function_exists('pll_get_post_translations')) return;
+
+        $post = get_post($post_id);
+        if (!$post || $post->post_type !== 'gedicht') return;
+
+        $translations = pll_get_post_translations($post_id);
+        if (empty($translations)) return;
+
+        foreach ($translations as $lang => $trans_id) {
+            if ($trans_id != $post_id && $trans_id > 0) {
+                $this->copy_gedicht_metadata($trans_id, $post_id);
+                break;
+            }
+        }
+    }
+
+    private function copy_werk_metadata($source_id, $target_id) {
+        $source_post = get_post($source_id);
+        $target_post = get_post($target_id);
+        
+        if (!$source_post || !$target_post) return;
+
+        $target_lang = '';
+        if (function_exists('pll_get_post_language')) {
+            $target_lang = pll_get_post_language($target_id, 'slug');
+        }
+        $should_translate = ($target_lang === 'en');
+
+        $update_post = [];
+        if (empty($target_post->post_title) && !empty($source_post->post_title)) {
+            $update_post['ID'] = $target_id;
+            $update_post['post_title'] = $should_translate ? $this->translate_text_de_to_en($source_post->post_title) : $source_post->post_title;
+        }
+        if (empty($target_post->post_content) && !empty($source_post->post_content)) {
+            $update_post['ID'] = $target_id;
+            $update_post['post_content'] = $should_translate ? $this->translate_text_de_to_en($source_post->post_content) : $source_post->post_content;
+        }
+        if (!empty($update_post)) {
+            wp_update_post($update_post);
+        }
+
+        $meta_keys = ['_werk_year', '_werk_materials', '_werk_dimensions', '_werk_price', '_werk_represented', '_werk_additional_images'];
+        foreach ($meta_keys as $meta_key) {
+            $target_value = get_post_meta($target_id, $meta_key, true);
+            
+            if (empty($target_value)) {
+                $source_value = get_post_meta($source_id, $meta_key, true);
+                if (!empty($source_value)) {
+                    if ($should_translate && in_array($meta_key, ['_werk_materials', '_werk_represented'])) {
+                        $source_value = $this->translate_text_de_to_en($source_value);
+                    }
+                    update_post_meta($target_id, $meta_key, $source_value);
+                }
+            }
+        }
+
+        $series = get_the_terms($source_id, 'serie');
+        if ($series && !is_wp_error($series)) {
+            $serie_ids = wp_list_pluck($series, 'term_id');
+            wp_set_post_terms($target_id, $serie_ids, 'serie', false);
+        }
+    }
+
+    private function copy_gedicht_metadata($source_id, $target_id) {
+        $source_post = get_post($source_id);
+        $target_post = get_post($target_id);
+        
+        if (!$source_post || !$target_post) return;
+
+        $target_lang = '';
+        if (function_exists('pll_get_post_language')) {
+            $target_lang = pll_get_post_language($target_id, 'slug');
+        }
+        $should_translate = ($target_lang === 'en');
+
+        $update_post = [];
+        if (empty($target_post->post_title) && !empty($source_post->post_title)) {
+            $update_post['ID'] = $target_id;
+            $update_post['post_title'] = $should_translate ? $this->translate_text_de_to_en($source_post->post_title) : $source_post->post_title;
+        }
+        if (empty($target_post->post_content) && !empty($source_post->post_content)) {
+            $update_post['ID'] = $target_id;
+            $update_post['post_content'] = $should_translate ? $this->translate_text_de_to_en($source_post->post_content) : $source_post->post_content;
+        }
+        if (!empty($update_post)) {
+            wp_update_post($update_post);
+        }
+
+        $meta_keys = ['_gedicht_datum'];
+        foreach ($meta_keys as $meta_key) {
+            $target_value = get_post_meta($target_id, $meta_key, true);
+            
+            if (empty($target_value)) {
+                $source_value = get_post_meta($source_id, $meta_key, true);
+                if (!empty($source_value)) {
+                    update_post_meta($target_id, $meta_key, $source_value);
+                }
+            }
+        }
+    }
+
+    private function translate_text_de_to_en($text) {
+        if (empty($text)) return $text;
+        
+        $api_key = get_option('micinterart_deepl_api_key', '');
+        if (empty($api_key)) return $text;
+
+        $response = wp_remote_post('https://api-free.deepl.com/v1/translate', [
+            'body' => [
+                'auth_key' => $api_key,
+                'text' => $text,
+                'source_lang' => 'DE',
+                'target_lang' => 'EN',
+            ],
+        ]);
+
+        if (is_wp_error($response)) {
+            error_log('DeepL Translation Error: ' . $response->get_error_message());
+            return $text;
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+        if (isset($body['translations'][0]['text'])) {
+            return $body['translations'][0]['text'];
+        }
+
+        return $text;
+    }
+
+    public function add_plugin_settings_menu() {
+        add_submenu_page('options-general.php', 'Micinterart Settings', 'Micinterart', 'manage_options', 'micinterart-settings', [$this, 'render_plugin_settings_page']);
+    }
+
+    public function register_plugin_settings() {
+        register_setting('micinterart-settings-group', 'micinterart_deepl_api_key', ['sanitize_callback' => 'sanitize_text_field']);
+    }
+
+    public function render_plugin_settings_page() {
+        if (!current_user_can('manage_options')) return;
+        ?>
+        <div class="wrap">
+            <h1>Micinterart Plugin Settings</h1>
+            <form method="post" action="options.php">
+                <?php settings_fields('micinterart-settings-group'); ?>
+                <?php do_settings_sections('micinterart-settings-group'); ?>
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row">DeepL API Key</th>
+                        <td>
+                            <input type="password" name="micinterart_deepl_api_key" value="<?php echo esc_attr(get_option('micinterart_deepl_api_key')); ?>" style="width: 300px;" />
+                            <p class="description">Your DeepL API key for automatic text translation. Get it at <a href="https://www.deepl.com/pro-api" target="_blank">DeepL</a>.</p>
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button(); ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    public function render_gedicht_relation_metabox($post) {
+        wp_nonce_field('gedicht_relation_nonce', 'gedicht_relation_nonce');
+        
+        $related_werk_id = get_post_meta($post->ID, '_related_werk', true);
+        
+        $werke = get_posts([
+            'post_type' => 'werk',
+            'posts_per_page' => -1,
+            'orderby' => 'title',
+            'order' => 'ASC',
+        ]);
+        
+        ?>
+        <label for="gedicht_related_werk">Zugeordnetes Werk:</label>
+        <select name="gedicht_related_werk" id="gedicht_related_werk" style="width: 100%;">
+            <option value="">-- Kein Werk --</option>
+            <?php foreach ($werke as $werk) : ?>
+                <option value="<?php echo $werk->ID; ?>" <?php selected($related_werk_id, $werk->ID); ?>>
+                    <?php echo esc_html($werk->post_title); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <?php
+    }
+
+    public function save_gedicht_relation_meta($post_id) {
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+        
+        if (!isset($_POST['gedicht_relation_nonce']) || !wp_verify_nonce($_POST['gedicht_relation_nonce'], 'gedicht_relation_nonce')) {
+            return;
+        }
+
+        if (isset($_POST['gedicht_related_werk'])) {
+            $werk_id = sanitize_text_field($_POST['gedicht_related_werk']);
+            if (!empty($werk_id)) {
+                update_post_meta($post_id, '_related_werk', (int) $werk_id);
+            } else {
+                delete_post_meta($post_id, '_related_werk');
+            }
+        }
     }
 }
 
