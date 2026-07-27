@@ -1,0 +1,26 @@
+/*
+ Theme Name:   Micinterart Child
+ Theme URI:    https://micinterart.de
+ Description:  Child-Theme fuer Blocksy – Workshop-System, Rabatte, Gutscheine, PayPal-Integration
+ Author:       Micinterart
+ Author URI:   https://micinterart.de
+ Template:     blocksy
+ Version:      1.0.0
+ License:      GNU General Public License v2 or later
+ License URI:  https://www.gnu.org/licenses/gpl-2.0.html
+ Text Domain:  micinterart-child
+*/
+
+/* ============================================================
+   Workshop Single Title – Kein automatisches Wort-Trennen
+   Verhindert, dass der Browser Wörter mitten im Wort oder
+   am Bindestrich auf eine optisch ungünstige Art umbricht.
+   Mit !important, da Blocksy global hyphens: auto setzt.
+   ============================================================ */
+.workshop-single-title,
+.workshop-single-title * {
+    hyphens: none !important;
+    -webkit-hyphens: none !important;
+    word-break: normal;
+    overflow-wrap: anywhere;
+}
