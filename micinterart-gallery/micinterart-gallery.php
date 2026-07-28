@@ -167,40 +167,37 @@ class MicinterartGallery {
 
     public function render_werk_metabox($post) {
         wp_nonce_field('werk_meta_save', 'werk_meta_nonce');
-        $jahr = get_post_meta($post->ID, '_werk_jahr', true);
-        $technik = get_post_meta($post->ID, '_werk_technik', true);
-        $format = get_post_meta($post->ID, '_werk_format', true);
+        $jahr = get_post_meta($post->ID, '_werk_year', true);
+        $technik = get_post_meta($post->ID, '_werk_materials', true);
+        $format = get_post_meta($post->ID, '_werk_dimensions', true);
         $preis = get_post_meta($post->ID, '_werk_preis', true);
-        $status = get_post_meta($post->ID, '_werk_status', true) ?: 'verfuegbar';
         $represented = get_post_meta($post->ID, '_werk_represented', true);
         ?>
         <p><label>Jahr:</label><br><input type="text" name="werk_jahr" value="<?php echo esc_attr($jahr); ?>" class="widefat"></p>
-        <p><label>Technik:</label><br><input type="text" name="werk_technik" value="<?php echo esc_attr($technik); ?>" class="widefat"></p>
-        <p><label>Format:</label><br><input type="text" name="werk_format" value="<?php echo esc_attr($format); ?>" class="widefat"></p>
+        <p><label>Materialien:</label><br><input type="text" name="werk_technik" value="<?php echo esc_attr($technik); ?>" class="widefat"></p>
+        <p><label>Maße:</label><br><input type="text" name="werk_format" value="<?php echo esc_attr($format); ?>" class="widefat"></p>
         <p><label>Preis (€):</label><br><input type="text" name="werk_preis" value="<?php echo esc_attr($preis); ?>" class="widefat"></p>
-        <p><label>Status:</label><br>
-        <select name="werk_status" class="widefat">
-            <option value="verfuegbar" <?php selected($status, 'verfuegbar'); ?>>Verfügbar</option>
-            <option value="reserviert" <?php selected($status, 'reserviert'); ?>>Reserviert</option>
-            <option value="verkauft" <?php selected($status, 'verkauft'); ?>>Verkauft</option>
-            <option value="privatbesitz" <?php selected($status, 'privatbesitz'); ?>>Privatbesitz</option>
-        </select></p>
-        <p><label><input type="checkbox" name="werk_represented" value="yes" <?php checked($represented, 'yes'); ?>> Vertreten durch Galerie Helligkeit (Represented by Galerie Helligkeit)</label></p>
+        <p><label>Galerie-Hinweis (z. B. "Galerie Helligkeit"):</label><br>
+        <input type="text" name="werk_represented" value="<?php echo esc_attr($represented); ?>" class="widefat" placeholder="Leer lassen, falls nicht zutreffend">
+        <span class="description">Wird im Frontend als "Represented by [Text]" bzw. "Vertreten durch [Text]" angezeigt, wenn ausgefüllt.</span></p>
         <?php
     }
 
     public function save_werk_meta($post_id) {
         if (!isset($_POST['werk_meta_nonce']) || !wp_verify_nonce($_POST['werk_meta_nonce'], 'werk_meta_save')) return;
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
-        $fields = ['_werk_jahr'=>'werk_jahr', '_werk_technik'=>'werk_technik', '_werk_format'=>'werk_format', '_werk_preis'=>'werk_preis', '_werk_status'=>'werk_status'];
+        $fields = ['_werk_year'=>'werk_jahr', '_werk_materials'=>'werk_technik', '_werk_dimensions'=>'werk_format', '_werk_preis'=>'werk_preis'];
         foreach($fields as $meta_key => $post_key) {
             if(isset($_POST[$post_key])) update_post_meta($post_id, $meta_key, sanitize_text_field($_POST[$post_key]));
         }
 
-        if (isset($_POST['werk_represented']) && $_POST['werk_represented'] === 'yes') {
-            update_post_meta($post_id, '_werk_represented', 'yes');
-        } else {
-            delete_post_meta($post_id, '_werk_represented');
+        if (isset($_POST['werk_represented'])) {
+            $represented = sanitize_text_field($_POST['werk_represented']);
+            if ($represented !== '') {
+                update_post_meta($post_id, '_werk_represented', $represented);
+            } else {
+                delete_post_meta($post_id, '_werk_represented');
+            }
         }
     }
 
@@ -324,9 +321,9 @@ class MicinterartGallery {
         $post_id = intval($_POST['post_id']);
         if (!$post_id) wp_send_json_error();
         $post = get_post($post_id);
-        $jahr = get_post_meta($post_id, '_werk_jahr', true);
-        $technik = get_post_meta($post_id, '_werk_technik', true);
-        $format = get_post_meta($post_id, '_werk_format', true);
+        $jahr = get_post_meta($post_id, '_werk_year', true);
+        $technik = get_post_meta($post_id, '_werk_materials', true);
+        $format = get_post_meta($post_id, '_werk_dimensions', true);
         $img = get_the_post_thumbnail_url($post_id, 'large');
         ob_start(); ?>
         <div class="mic-lightbox-content">
@@ -334,8 +331,8 @@ class MicinterartGallery {
             <div class="mic-lightbox-info">
                 <h2><?php echo esc_html($post->post_title); ?></h2>
                 <p><strong>Jahr:</strong> <?php echo esc_html($jahr); ?></p>
-                <p><strong>Technik:</strong> <?php echo esc_html($technik); ?></p>
-                <p><strong>Format:</strong> <?php echo esc_html($format); ?></p>
+                <p><strong>Materialien:</strong> <?php echo esc_html($technik); ?></p>
+                <p><strong>Maße:</strong> <?php echo esc_html($format); ?></p>
                 <div class="mic-lightbox-desc"><?php echo apply_filters('the_content', $post->post_content); ?></div>
             </div>
         </div>
@@ -432,22 +429,22 @@ class MicinterartGallery {
         if (function_exists('pll_get_post_language')) {
             $target_lang = pll_get_post_language($target_id, 'slug');
         }
-        $should_translate = ($target_lang === 'en');
+        $should_translate = in_array($target_lang, ['en', 'ru'], true);
 
         $update_post = [];
         if (empty($target_post->post_title) && !empty($source_post->post_title)) {
             $update_post['ID'] = $target_id;
-            $update_post['post_title'] = $should_translate ? $this->translate_text_de_to_en($source_post->post_title) : $source_post->post_title;
+            $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $target_lang) : $source_post->post_title;
         }
         if (empty($target_post->post_content) && !empty($source_post->post_content)) {
             $update_post['ID'] = $target_id;
-            $update_post['post_content'] = $should_translate ? $this->translate_text_de_to_en($source_post->post_content) : $source_post->post_content;
+            $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $target_lang) : $source_post->post_content;
         }
         if (!empty($update_post)) {
             wp_update_post($update_post);
         }
 
-        $meta_keys = ['_werk_year', '_werk_materials', '_werk_dimensions', '_werk_price', '_werk_represented', '_werk_additional_images'];
+        $meta_keys = ['_werk_year', '_werk_materials', '_werk_dimensions', '_werk_preis', '_werk_represented', '_werk_additional_images'];
         foreach ($meta_keys as $meta_key) {
             $target_value = get_post_meta($target_id, $meta_key, true);
             
@@ -455,7 +452,7 @@ class MicinterartGallery {
                 $source_value = get_post_meta($source_id, $meta_key, true);
                 if (!empty($source_value)) {
                     if ($should_translate && in_array($meta_key, ['_werk_materials', '_werk_represented'])) {
-                        $source_value = $this->translate_text_de_to_en($source_value);
+                        $source_value = $this->translate_text($source_value, $target_lang);
                     }
                     update_post_meta($target_id, $meta_key, $source_value);
                 }
@@ -479,16 +476,16 @@ class MicinterartGallery {
         if (function_exists('pll_get_post_language')) {
             $target_lang = pll_get_post_language($target_id, 'slug');
         }
-        $should_translate = ($target_lang === 'en');
+        $should_translate = in_array($target_lang, ['en', 'ru'], true);
 
         $update_post = [];
         if (empty($target_post->post_title) && !empty($source_post->post_title)) {
             $update_post['ID'] = $target_id;
-            $update_post['post_title'] = $should_translate ? $this->translate_text_de_to_en($source_post->post_title) : $source_post->post_title;
+            $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $target_lang) : $source_post->post_title;
         }
         if (empty($target_post->post_content) && !empty($source_post->post_content)) {
             $update_post['ID'] = $target_id;
-            $update_post['post_content'] = $should_translate ? $this->translate_text_de_to_en($source_post->post_content) : $source_post->post_content;
+            $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $target_lang) : $source_post->post_content;
         }
         if (!empty($update_post)) {
             wp_update_post($update_post);
@@ -507,18 +504,35 @@ class MicinterartGallery {
         }
     }
 
-    private function translate_text_de_to_en($text) {
+    /**
+     * Übersetzt einen Text via DeepL in die Zielsprache.
+     * $target_lang_slug ist der Polylang-Sprach-Slug, z.B. 'en' oder 'ru'.
+     */
+    private function translate_text($text, $target_lang_slug) {
         if (empty($text)) return $text;
-        
+
         $api_key = get_option('micinterart_deepl_api_key', '');
         if (empty($api_key)) return $text;
 
-        $response = wp_remote_post('https://api-free.deepl.com/v1/translate', [
+        $lang_map = [
+            'en' => 'EN-GB',
+            'ru' => 'RU',
+        ];
+        $deepl_target = $lang_map[$target_lang_slug] ?? null;
+        if (!$deepl_target) return $text;
+
+        // DeepL Free-Keys enden auf ":fx" und nutzen einen anderen Endpunkt als Pro-Keys.
+        $api_url = (substr($api_key, -3) === ':fx')
+            ? 'https://api-free.deepl.com/v2/translate'
+            : 'https://api.deepl.com/v2/translate';
+
+        $response = wp_remote_post($api_url, [
+            'timeout' => 15,
             'body' => [
                 'auth_key' => $api_key,
                 'text' => $text,
                 'source_lang' => 'DE',
-                'target_lang' => 'EN',
+                'target_lang' => $deepl_target,
             ],
         ]);
 
@@ -556,7 +570,7 @@ class MicinterartGallery {
                         <th scope="row">DeepL API Key</th>
                         <td>
                             <input type="password" name="micinterart_deepl_api_key" value="<?php echo esc_attr(get_option('micinterart_deepl_api_key')); ?>" style="width: 300px;" />
-                            <p class="description">Your DeepL API key for automatic text translation. Get it at <a href="https://www.deepl.com/pro-api" target="_blank">DeepL</a>.</p>
+                            <p class="description">Wird für die automatische Übersetzung von Titel, Beschreibung, Materialien und Galerie-Hinweis (Werke) sowie Titel und Text (Gedichte) genutzt, sobald du eine Englisch- oder Russisch-Übersetzung anlegst. Es werden nur leere Felder befüllt, bestehende Übersetzungen werden nie überschrieben. Get it at <a href="https://www.deepl.com/pro-api" target="_blank">DeepL</a>.</p>
                         </td>
                     </tr>
                 </table>
