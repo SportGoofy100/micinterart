@@ -1,0 +1,47 @@
+name: Deploy to micinterart.de via FTP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-theme:
+    name: Deploy Child-Theme
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Child-Theme per FTP hochladen
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./micinterart-child/
+          server-dir: /wp-content/themes/micinterart-child/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+
+  deploy-plugin:
+    name: Deploy Plugin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Plugin per FTP hochladen
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./micinterart-gallery/
+          server-dir: /wp-content/plugins/micinterart-gallery/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
