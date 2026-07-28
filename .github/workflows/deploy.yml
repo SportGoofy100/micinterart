@@ -20,7 +20,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./micinterart-child/
-          server-dir: /wp-content/themes/micinterart-child/
+          server-dir: /staging.micinterart.de/wp-content/themes/micinterart-child/
           exclude: |
             **/.git*
             **/.git*/**
@@ -40,7 +40,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./micinterart-gallery/
-          server-dir: /wp-content/plugins/micinterart-gallery/
+          server-dir: /staging.micinterart.de/wp-content/plugins/micinterart-gallery/
           exclude: |
             **/.git*
             **/.git*/**
