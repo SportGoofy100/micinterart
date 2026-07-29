@@ -4,7 +4,7 @@
  */
 
 get_header();
-$is_en = (function_exists('pll_current_language') && pll_current_language() === 'en');
+$is_en = micinterart_is_english();
 ?>
 
 <style>
