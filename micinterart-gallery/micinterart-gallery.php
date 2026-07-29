@@ -54,6 +54,7 @@ class MicinterartGallery {
         add_action('save_post_gedicht', [$this, 'sync_gedicht_on_save'], 20);
         add_action('pll_save_post_translations', [$this, 'sync_gedicht_on_polylang_save'], 10, 2);
         add_action('pll_save_post_translations', [$this, 'sync_werk_on_polylang_save'], 10, 2);
+        add_action('pll_save_post_translations', [$this, 'sync_page_on_polylang_save'], 10, 2);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
         add_action('admin_menu', [$this, 'add_plugin_settings_menu']);
@@ -369,6 +370,22 @@ class MicinterartGallery {
         $this->sync_new_polylang_translations($post_id, $translations, 'gedicht');
     }
 
+    /** Übersetzt Gutenberg-Seiten einmalig beim Anlegen einer PolyLang-Fassung. */
+    public function sync_page_on_polylang_save($post_id, $translations) {
+        if (!function_exists('pll_get_post_language')) return;
+
+        $post = get_post($post_id);
+        if (!$post || $post->post_type !== 'page') return;
+
+        $source_id = $this->get_german_translation_id($translations);
+        if (!$source_id) return;
+
+        foreach ($translations as $lang => $translation_id) {
+            if (!$translation_id || $translation_id == $source_id || $lang === 'de') continue;
+            $this->copy_page_translation($source_id, $translation_id);
+        }
+    }
+
     public function sync_werk_on_save($post_id) {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         if (!function_exists('pll_get_post_language') || !function_exists('pll_get_post_translations')) return;
@@ -437,6 +454,36 @@ class MicinterartGallery {
             }
         }
         return 0;
+    }
+
+    /**
+     * Titel und Gutenberg-Inhalt werden nur beim ersten Anlegen der
+     * Zielseite übersetzt. Bereits redaktionell gepflegte Seiten bleiben
+     * unverändert.
+     */
+    private function copy_page_translation($source_id, $target_id) {
+        if (metadata_exists('post', $target_id, '_micinterart_page_translation_initialized')) return;
+
+        $source_post = get_post($source_id);
+        $target_post = get_post($target_id);
+        if (!$source_post || !$target_post) return;
+
+        $target_lang = pll_get_post_language($target_id, 'slug');
+        $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
+        if ($deepl_target === '') return;
+
+        $update_post = [];
+        if (($this->is_empty_translation_title($target_post) || $target_post->post_title === $source_post->post_title) && !empty($source_post->post_title)) {
+            $update_post['ID'] = $target_id;
+            $update_post['post_title'] = $this->translate_text($source_post->post_title, $deepl_target);
+        }
+        if ((empty($target_post->post_content) || $target_post->post_content === $source_post->post_content) && !empty($source_post->post_content)) {
+            $update_post['ID'] = $target_id;
+            $update_post['post_content'] = $this->translate_text($source_post->post_content, $deepl_target);
+        }
+
+        $this->update_translation_post($target_id, $update_post);
+        update_post_meta($target_id, '_micinterart_page_translation_initialized', '1');
     }
 
     private function copy_werk_metadata($source_id, $target_id) {
