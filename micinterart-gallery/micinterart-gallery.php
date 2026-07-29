@@ -422,7 +422,7 @@ class MicinterartGallery {
             if ($post_type === 'werk') {
                 $this->copy_werk_metadata($source_id, $translation_id);
             } else {
-                $this->copy_gedicht_metadata($source_id, $translation_id);
+                $this->copy_gedicht_metadata($source_id, $translation_id, true);
             }
         }
     }
@@ -451,7 +451,6 @@ class MicinterartGallery {
         }
         $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
         $should_translate = $deepl_target !== '';
-
         $update_post = [];
         if (($this->is_empty_translation_title($target_post) || ($should_translate && $target_post->post_title === $source_post->post_title)) && !empty($source_post->post_title)) {
             $update_post['ID'] = $target_id;
@@ -493,7 +492,7 @@ class MicinterartGallery {
         }
     }
 
-    private function copy_gedicht_metadata($source_id, $target_id) {
+    private function copy_gedicht_metadata($source_id, $target_id, $initialize_translation = false) {
         $source_post = get_post($source_id);
         $target_post = get_post($target_id);
         
@@ -505,21 +504,28 @@ class MicinterartGallery {
         }
         $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
         $should_translate = $deepl_target !== '';
+        // Nur beim Anlegen darf DeepL Titel und Text vorbefüllen. Danach
+        // bleibt jede redaktionell eingetragene Übersetzung unverändert.
+        $is_initial_translation = $initialize_translation
+            && !metadata_exists('post', $target_id, '_micinterart_gedicht_translation_initialized');
 
         $update_post = [];
-        if (($this->is_empty_translation_title($target_post) || ($should_translate && $target_post->post_title === $source_post->post_title)) && !empty($source_post->post_title)) {
+        if ($is_initial_translation && ($this->is_empty_translation_title($target_post) || ($should_translate && $target_post->post_title === $source_post->post_title)) && !empty($source_post->post_title)) {
             $update_post['ID'] = $target_id;
             $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $deepl_target) : $source_post->post_title;
         }
-        if ((empty($target_post->post_content) || ($should_translate && $target_post->post_content === $source_post->post_content)) && !empty($source_post->post_content)) {
+        if ($is_initial_translation && (empty($target_post->post_content) || ($should_translate && $target_post->post_content === $source_post->post_content)) && !empty($source_post->post_content)) {
             $update_post['ID'] = $target_id;
             $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $deepl_target) : $source_post->post_content;
         }
-        if ((empty($target_post->post_excerpt) || ($should_translate && $target_post->post_excerpt === $source_post->post_excerpt)) && !empty($source_post->post_excerpt)) {
+        if ($is_initial_translation && (empty($target_post->post_excerpt) || ($should_translate && $target_post->post_excerpt === $source_post->post_excerpt)) && !empty($source_post->post_excerpt)) {
             $update_post['ID'] = $target_id;
             $update_post['post_excerpt'] = $should_translate ? $this->translate_text($source_post->post_excerpt, $deepl_target) : $source_post->post_excerpt;
         }
         $this->update_translation_post($target_id, $update_post);
+        if ($is_initial_translation) {
+            update_post_meta($target_id, '_micinterart_gedicht_translation_initialized', '1');
+        }
 
         $meta_keys = ['_gedicht_datum'];
         foreach ($meta_keys as $meta_key) {
