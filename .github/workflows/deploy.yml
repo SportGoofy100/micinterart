@@ -43,6 +43,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
+          log-level: verbose
           local-dir: ./micinterart-gallery/
           server-dir: /staging.micinterart.de/wp-content/plugins/micinterart-gallery/
           exclude: |
