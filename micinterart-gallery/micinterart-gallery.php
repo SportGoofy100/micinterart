@@ -587,8 +587,12 @@ class MicinterartGallery {
 
         $response = wp_remote_post($api_url, [
             'timeout' => 15,
+            // DeepL empfiehlt die Authentifizierung per Header. Dadurch wird
+            // der Schlüssel auch nicht als Formularparameter weitergegeben.
+            'headers' => [
+                'Authorization' => 'DeepL-Auth-Key ' . $api_key,
+            ],
             'body' => [
-                'auth_key' => $api_key,
                 'text' => $text,
                 'source_lang' => 'DE',
                 'target_lang' => $deepl_target,
@@ -599,23 +603,36 @@ class MicinterartGallery {
         ]);
 
         if (is_wp_error($response)) {
-            error_log('DeepL Translation Error: ' . $response->get_error_message());
+            $message = 'DeepL-Verbindung fehlgeschlagen: ' . $response->get_error_message();
+            error_log($message);
+            $this->record_deepl_error($message);
             return $text;
         }
 
         $response_body = wp_remote_retrieve_body($response);
         if (wp_remote_retrieve_response_code($response) !== 200) {
-            error_log('DeepL Translation Error (HTTP ' . wp_remote_retrieve_response_code($response) . '): ' . $response_body);
+            $message = 'DeepL antwortet mit HTTP ' . wp_remote_retrieve_response_code($response) . '. Bitte API-Schlüssel und API-Zugang prüfen.';
+            error_log($message . ' Antwort: ' . $response_body);
+            $this->record_deepl_error($message);
             return $text;
         }
 
         $body = json_decode($response_body, true);
         if (isset($body['translations'][0]['text'])) {
+            delete_option('micinterart_deepl_last_error');
             return $body['translations'][0]['text'];
         }
 
         error_log('DeepL Translation Error: unexpected API response.');
+        $this->record_deepl_error('DeepL hat eine unerwartete Antwort zurückgegeben.');
         return $text;
+    }
+
+    private function record_deepl_error($message) {
+        update_option('micinterart_deepl_last_error', [
+            'message' => sanitize_text_field($message),
+            'time' => time(),
+        ], false);
     }
 
     /**
@@ -663,9 +680,13 @@ class MicinterartGallery {
 
     public function render_plugin_settings_page() {
         if (!current_user_can('manage_options')) return;
+        $deepl_error = get_option('micinterart_deepl_last_error');
         ?>
         <div class="wrap">
             <h1>Micinterart Plugin Settings</h1>
+            <?php if (is_array($deepl_error) && !empty($deepl_error['message'])) : ?>
+                <div class="notice notice-error"><p><strong>Letzter DeepL-Fehler:</strong> <?php echo esc_html($deepl_error['message']); ?></p></div>
+            <?php endif; ?>
             <form method="post" action="options.php">
                 <?php settings_fields('micinterart-settings-group'); ?>
                 <?php do_settings_sections('micinterart-settings-group'); ?>
