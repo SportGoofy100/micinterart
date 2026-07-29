@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Micinterart Gallery
  * Description: Galerie-Lösung mit CPT "Werk", "Gedicht" und "Workshop", Taxonomie "Serie", erweiterten Metaboxen und Lightbox
- * Version: 2.4.5
+ * Version: 2.4.6
  * Author: Urs
  * Text Domain: micinterart
  * Requires at least: 5.8
@@ -21,8 +21,10 @@ if (!defined('ABSPATH')) {
 
 class MicinterartGallery {
 
-    private const VERSION = '2.4.5';
+    private const VERSION = '2.4.6';
     private static $instance = null;
+    /** Verhindert erneute Synchronisierungen, die durch wp_update_post ausgelöst werden. */
+    private $translation_sync_in_progress = [];
 
     public static function get_instance(): self {
         if (null === self::$instance) {
@@ -360,32 +362,17 @@ class MicinterartGallery {
     // ===== POLYLANG SYNCHRONIZATION =====
     
     public function sync_werk_on_polylang_save($post_id, $translations) {
-        if (!function_exists('pll_get_post_language')) return;
-        
-        $source_post = get_post($post_id);
-        if (!$source_post || $source_post->post_type !== 'werk') return;
-
-        foreach ($translations as $lang => $translation_id) {
-            if (!$translation_id || $translation_id == $post_id) continue;
-            $this->copy_werk_metadata($post_id, $translation_id);
-        }
+        $this->sync_new_polylang_translations($post_id, $translations, 'werk');
     }
 
     public function sync_gedicht_on_polylang_save($post_id, $translations) {
-        if (!function_exists('pll_get_post_language')) return;
-        
-        $source_post = get_post($post_id);
-        if (!$source_post || $source_post->post_type !== 'gedicht') return;
-
-        foreach ($translations as $lang => $translation_id) {
-            if (!$translation_id || $translation_id == $post_id) continue;
-            $this->copy_gedicht_metadata($post_id, $translation_id);
-        }
+        $this->sync_new_polylang_translations($post_id, $translations, 'gedicht');
     }
 
     public function sync_werk_on_save($post_id) {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         if (!function_exists('pll_get_post_language') || !function_exists('pll_get_post_translations')) return;
+        if (!empty($this->translation_sync_in_progress[$post_id])) return;
 
         $post = get_post($post_id);
         if (!$post || $post->post_type !== 'werk') return;
@@ -393,17 +380,16 @@ class MicinterartGallery {
         $translations = pll_get_post_translations($post_id);
         if (empty($translations)) return;
 
-        foreach ($translations as $lang => $trans_id) {
-            if ($trans_id != $post_id && $trans_id > 0) {
-                $this->copy_werk_metadata($trans_id, $post_id);
-                break;
-            }
+        $source_id = $this->get_german_translation_id($translations);
+        if ($source_id && $source_id != $post_id) {
+            $this->copy_werk_metadata($source_id, $post_id);
         }
     }
 
     public function sync_gedicht_on_save($post_id) {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         if (!function_exists('pll_get_post_language') || !function_exists('pll_get_post_translations')) return;
+        if (!empty($this->translation_sync_in_progress[$post_id])) return;
 
         $post = get_post($post_id);
         if (!$post || $post->post_type !== 'gedicht') return;
@@ -411,12 +397,46 @@ class MicinterartGallery {
         $translations = pll_get_post_translations($post_id);
         if (empty($translations)) return;
 
-        foreach ($translations as $lang => $trans_id) {
-            if ($trans_id != $post_id && $trans_id > 0) {
-                $this->copy_gedicht_metadata($trans_id, $post_id);
-                break;
+        $source_id = $this->get_german_translation_id($translations);
+        if ($source_id && $source_id != $post_id) {
+            $this->copy_gedicht_metadata($source_id, $post_id);
+        }
+    }
+
+    /**
+     * Polylang ruft diesen Hook beim Verknüpfen der Übersetzung auf. Als
+     * Ausgangspunkt dient immer die deutsche Fassung, damit beim Speichern
+     * einer Übersetzung keine Inhalte in die falsche Richtung kopiert werden.
+     */
+    private function sync_new_polylang_translations($post_id, $translations, $post_type) {
+        if (!function_exists('pll_get_post_language')) return;
+
+        $post = get_post($post_id);
+        if (!$post || $post->post_type !== $post_type) return;
+
+        $source_id = $this->get_german_translation_id($translations);
+        if (!$source_id) return;
+
+        foreach ($translations as $lang => $translation_id) {
+            if (!$translation_id || $translation_id == $source_id || $lang === 'de') continue;
+            if ($post_type === 'werk') {
+                $this->copy_werk_metadata($source_id, $translation_id);
+            } else {
+                $this->copy_gedicht_metadata($source_id, $translation_id);
             }
         }
+    }
+
+    private function get_german_translation_id($translations) {
+        if (!is_array($translations)) return 0;
+
+        if (!empty($translations['de'])) return (int) $translations['de'];
+        foreach ($translations as $translation_id) {
+            if ($translation_id && pll_get_post_language($translation_id, 'slug') === 'de') {
+                return (int) $translation_id;
+            }
+        }
+        return 0;
     }
 
     private function copy_werk_metadata($source_id, $target_id) {
@@ -429,34 +449,41 @@ class MicinterartGallery {
         if (function_exists('pll_get_post_language')) {
             $target_lang = pll_get_post_language($target_id, 'slug');
         }
-        $should_translate = in_array($target_lang, ['en', 'ru'], true);
+        $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
+        $should_translate = $deepl_target !== '';
 
         $update_post = [];
-        if (empty($target_post->post_title) && !empty($source_post->post_title)) {
+        if (($this->is_empty_translation_title($target_post) || ($should_translate && $target_post->post_title === $source_post->post_title)) && !empty($source_post->post_title)) {
             $update_post['ID'] = $target_id;
-            $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $target_lang) : $source_post->post_title;
+            $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $deepl_target) : $source_post->post_title;
         }
-        if (empty($target_post->post_content) && !empty($source_post->post_content)) {
+        if ((empty($target_post->post_content) || ($should_translate && $target_post->post_content === $source_post->post_content)) && !empty($source_post->post_content)) {
             $update_post['ID'] = $target_id;
-            $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $target_lang) : $source_post->post_content;
+            $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $deepl_target) : $source_post->post_content;
         }
-        if (!empty($update_post)) {
-            wp_update_post($update_post);
+        if ((empty($target_post->post_excerpt) || ($should_translate && $target_post->post_excerpt === $source_post->post_excerpt)) && !empty($source_post->post_excerpt)) {
+            $update_post['ID'] = $target_id;
+            $update_post['post_excerpt'] = $should_translate ? $this->translate_text($source_post->post_excerpt, $deepl_target) : $source_post->post_excerpt;
         }
+        $this->update_translation_post($target_id, $update_post);
 
         $meta_keys = ['_werk_year', '_werk_materials', '_werk_dimensions', '_werk_preis', '_werk_represented', '_werk_additional_images'];
         foreach ($meta_keys as $meta_key) {
             $target_value = get_post_meta($target_id, $meta_key, true);
             
-            if (empty($target_value)) {
+            if (empty($target_value) || ($should_translate && in_array($meta_key, ['_werk_materials', '_werk_represented'], true) && $target_value === get_post_meta($source_id, $meta_key, true))) {
                 $source_value = get_post_meta($source_id, $meta_key, true);
                 if (!empty($source_value)) {
                     if ($should_translate && in_array($meta_key, ['_werk_materials', '_werk_represented'])) {
-                        $source_value = $this->translate_text($source_value, $target_lang);
+                        $source_value = $this->translate_text($source_value, $deepl_target);
                     }
                     update_post_meta($target_id, $meta_key, $source_value);
                 }
             }
+        }
+
+        if (!has_post_thumbnail($target_id) && has_post_thumbnail($source_id)) {
+            set_post_thumbnail($target_id, get_post_thumbnail_id($source_id));
         }
 
         $series = get_the_terms($source_id, 'serie');
@@ -476,20 +503,23 @@ class MicinterartGallery {
         if (function_exists('pll_get_post_language')) {
             $target_lang = pll_get_post_language($target_id, 'slug');
         }
-        $should_translate = in_array($target_lang, ['en', 'ru'], true);
+        $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
+        $should_translate = $deepl_target !== '';
 
         $update_post = [];
-        if (empty($target_post->post_title) && !empty($source_post->post_title)) {
+        if (($this->is_empty_translation_title($target_post) || ($should_translate && $target_post->post_title === $source_post->post_title)) && !empty($source_post->post_title)) {
             $update_post['ID'] = $target_id;
-            $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $target_lang) : $source_post->post_title;
+            $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $deepl_target) : $source_post->post_title;
         }
-        if (empty($target_post->post_content) && !empty($source_post->post_content)) {
+        if ((empty($target_post->post_content) || ($should_translate && $target_post->post_content === $source_post->post_content)) && !empty($source_post->post_content)) {
             $update_post['ID'] = $target_id;
-            $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $target_lang) : $source_post->post_content;
+            $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $deepl_target) : $source_post->post_content;
         }
-        if (!empty($update_post)) {
-            wp_update_post($update_post);
+        if ((empty($target_post->post_excerpt) || ($should_translate && $target_post->post_excerpt === $source_post->post_excerpt)) && !empty($source_post->post_excerpt)) {
+            $update_post['ID'] = $target_id;
+            $update_post['post_excerpt'] = $should_translate ? $this->translate_text($source_post->post_excerpt, $deepl_target) : $source_post->post_excerpt;
         }
+        $this->update_translation_post($target_id, $update_post);
 
         $meta_keys = ['_gedicht_datum'];
         foreach ($meta_keys as $meta_key) {
@@ -502,23 +532,52 @@ class MicinterartGallery {
                 }
             }
         }
+
+        $this->copy_related_werk($source_id, $target_id, $target_lang);
+
+        if (!has_post_thumbnail($target_id) && has_post_thumbnail($source_id)) {
+            set_post_thumbnail($target_id, get_post_thumbnail_id($source_id));
+        }
+    }
+
+    private function update_translation_post($target_id, $update_post) {
+        if (empty($update_post)) return;
+
+        $this->translation_sync_in_progress[$target_id] = true;
+        wp_update_post($update_post);
+        unset($this->translation_sync_in_progress[$target_id]);
+    }
+
+    private function is_empty_translation_title($post) {
+        return empty($post->post_title)
+            || ($post->post_status === 'auto-draft' && $post->post_title === 'Auto Draft');
+    }
+
+    /** Verknüpft ein übersetztes Gedicht mit der passenden Werk-Übersetzung. */
+    private function copy_related_werk($source_id, $target_id, $target_lang) {
+        if (!empty(get_post_meta($target_id, '_related_werk', true))) return;
+
+        $related_werk_id = (int) get_post_meta($source_id, '_related_werk', true);
+        if (!$related_werk_id) return;
+
+        if (function_exists('pll_get_post_translations')) {
+            $werk_translations = pll_get_post_translations($related_werk_id);
+            if (!empty($werk_translations[$target_lang])) {
+                $related_werk_id = (int) $werk_translations[$target_lang];
+            }
+        }
+        update_post_meta($target_id, '_related_werk', $related_werk_id);
     }
 
     /**
      * Übersetzt einen Text via DeepL in die Zielsprache.
-     * $target_lang_slug ist der Polylang-Sprach-Slug, z.B. 'en' oder 'ru'.
+     * $deepl_target ist ein DeepL-Sprachcode, z.B. 'EN-GB' oder 'RU'.
      */
-    private function translate_text($text, $target_lang_slug) {
+    private function translate_text($text, $deepl_target) {
         if (empty($text)) return $text;
 
         $api_key = get_option('micinterart_deepl_api_key', '');
         if (empty($api_key)) return $text;
-
-        $lang_map = [
-            'en' => 'EN-GB',
-            'ru' => 'RU',
-        ];
-        $deepl_target = $lang_map[$target_lang_slug] ?? null;
         if (!$deepl_target) return $text;
 
         // DeepL Free-Keys enden auf ":fx" und nutzen einen anderen Endpunkt als Pro-Keys.
@@ -533,6 +592,9 @@ class MicinterartGallery {
                 'text' => $text,
                 'source_lang' => 'DE',
                 'target_lang' => $deepl_target,
+                // Beschreibungen können Gutenberg-/HTML-Markup enthalten.
+                // DeepL übersetzt dann nur Textknoten und erhält das Markup.
+                'tag_handling' => 'html',
             ],
         ]);
 
@@ -541,12 +603,54 @@ class MicinterartGallery {
             return $text;
         }
 
-        $body = json_decode(wp_remote_retrieve_body($response), true);
+        $response_body = wp_remote_retrieve_body($response);
+        if (wp_remote_retrieve_response_code($response) !== 200) {
+            error_log('DeepL Translation Error (HTTP ' . wp_remote_retrieve_response_code($response) . '): ' . $response_body);
+            return $text;
+        }
+
+        $body = json_decode($response_body, true);
         if (isset($body['translations'][0]['text'])) {
             return $body['translations'][0]['text'];
         }
 
+        error_log('DeepL Translation Error: unexpected API response.');
         return $text;
+    }
+
+    /**
+     * PolyLang installations use different slugs for the same language
+     * (for example en, en-gb or en_US). The locale is therefore checked as
+     * a fallback before a DeepL code is selected.
+     */
+    private function get_deepl_target_language($post_id, $target_lang_slug) {
+        $candidates = [$target_lang_slug];
+        if (function_exists('pll_get_post_language')) {
+            $candidates[] = pll_get_post_language($post_id, 'locale');
+            $candidates[] = pll_get_post_language($post_id, 'name');
+        }
+
+        $lang_map = [
+            'en' => 'EN-GB',
+            'en-gb' => 'EN-GB',
+            'en-us' => 'EN-US',
+            'english' => 'EN-GB',
+            'englisch' => 'EN-GB',
+            'eng' => 'EN-GB',
+            'ru' => 'RU',
+            'ru-ru' => 'RU',
+            'russian' => 'RU',
+            'russisch' => 'RU',
+            'rus' => 'RU',
+        ];
+
+        foreach ($candidates as $candidate) {
+            $normalized = strtolower(str_replace('_', '-', (string) $candidate));
+            if (isset($lang_map[$normalized])) {
+                return $lang_map[$normalized];
+            }
+        }
+        return '';
     }
 
     public function add_plugin_settings_menu() {
