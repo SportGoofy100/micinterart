@@ -24,6 +24,7 @@ class MicinterartGallery {
     private const VERSION = '2.4.7';
     private const PAGE_TRANSLATION_FLAG = '_micinterart_page_translation_initialized';
     private const GEDICHT_TRANSLATION_FLAG = '_micinterart_gedicht_translation_initialized';
+    private const WORKSHOP_TRANSLATION_FLAG = '_micinterart_workshop_translation_initialized';
     private static $instance = null;
     /** Verhindert erneute Synchronisierungen, die durch wp_update_post ausgelöst werden. */
     private $translation_sync_in_progress = [];
@@ -59,6 +60,7 @@ class MicinterartGallery {
         add_action('pll_save_post_translations', [$this, 'sync_gedicht_on_polylang_save'], 10, 2);
         add_action('pll_save_post_translations', [$this, 'sync_werk_on_polylang_save'], 10, 2);
         add_action('pll_save_post_translations', [$this, 'sync_page_on_polylang_save'], 10, 2);
+        add_action('pll_save_post_translations', [$this, 'sync_workshop_on_polylang_save'], 10, 2);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
         add_action('admin_menu', [$this, 'add_plugin_settings_menu']);
@@ -394,6 +396,22 @@ class MicinterartGallery {
         }
     }
 
+    /** Übersetzt Workshops und Workshop-Themen einmalig beim Anlegen einer PolyLang-Fassung. */
+    public function sync_workshop_on_polylang_save($post_id, $translations) {
+        if (!function_exists('pll_get_post_language')) return;
+
+        $post = get_post($post_id);
+        if (!$post || !in_array($post->post_type, ['workshop', 'workshop_thema'], true)) return;
+
+        $source_id = $this->get_german_translation_id($translations);
+        if (!$source_id) return;
+
+        foreach ($translations as $lang => $translation_id) {
+            if (!$translation_id || $translation_id == $source_id || $lang === 'de') continue;
+            $this->copy_workshop_translation($source_id, $translation_id);
+        }
+    }
+
     public function sync_werk_on_save($post_id) {
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         if (!function_exists('pll_get_post_language') || !function_exists('pll_get_post_translations')) return;
@@ -504,6 +522,123 @@ class MicinterartGallery {
         if ($translation_complete) {
             update_post_meta($target_id, self::PAGE_TRANSLATION_FLAG, '1');
         }
+    }
+
+    /**
+     * Titel, Text und die redaktionellen Textfelder eines Workshops bzw.
+     * Workshop-Themas werden beim Anlegen der Übersetzung einmalig übersetzt.
+     * Laufende Werte (Buchungen, Status, Termine) bleiben bewusst leer, das
+     * Theme fällt dafür über micinterart_get_translated_meta() auf die
+     * deutsche Fassung zurück.
+     */
+    private function copy_workshop_translation($source_id, $target_id, $force = false) {
+        if (!$force && metadata_exists('post', $target_id, self::WORKSHOP_TRANSLATION_FLAG)) return;
+
+        $source_post = get_post($source_id);
+        $target_post = get_post($target_id);
+        if (!$source_post || !$target_post) return;
+
+        $target_lang = pll_get_post_language($target_id, 'slug');
+        $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
+        if ($deepl_target === '') {
+            $this->record_deepl_error(sprintf('Für die Sprache "%s" ist kein DeepL-Zielcode hinterlegt, der Workshop wurde nicht übersetzt.', (string) $target_lang));
+            return;
+        }
+
+        $translation_complete = true;
+        $update_post = [];
+        foreach (['post_title', 'post_content', 'post_excerpt'] as $field) {
+            if (empty($source_post->$field)) continue;
+            $is_title = $field === 'post_title';
+            if (!$force
+                && !($is_title && $this->is_empty_translation_title($target_post))
+                && !$this->is_untranslated_field($target_post->$field, $source_post->$field)) {
+                continue;
+            }
+            $update_post['ID'] = $target_id;
+            $update_post[$field] = $this->translate_text($source_post->$field, $deepl_target);
+            $translation_complete = $translation_complete && $this->last_translation_succeeded;
+        }
+        $this->update_translation_post($target_id, $update_post);
+
+        $this->translate_meta_fields($source_id, $target_id, $deepl_target, $this->get_workshop_text_meta_keys($source_post->post_type), $force, $translation_complete);
+        $this->copy_workshop_terms($source_id, $target_id, $target_lang);
+        if ($source_post->post_type === 'workshop_thema') {
+            $this->copy_thema_workshop_relation($source_id, $target_id, $target_lang);
+        }
+
+        if (!has_post_thumbnail($target_id) && has_post_thumbnail($source_id)) {
+            set_post_thumbnail($target_id, get_post_thumbnail_id($source_id));
+        }
+
+        if ($translation_complete) {
+            update_post_meta($target_id, self::WORKSHOP_TRANSLATION_FLAG, '1');
+        }
+    }
+
+    /** Redaktionell gepflegte Textfelder von Workshops und Workshop-Themen. */
+    private function get_workshop_text_meta_keys($post_type) {
+        $keys = $post_type === 'workshop_thema'
+            ? ['_thema_ort']
+            : ['_workshop_ort', '_workshop_adresse', '_workshop_preis_info', '_workshop_preis_inklusiv'];
+
+        // "Was dich erwartet": Felder 2, 6 und 7 werden automatisch erzeugt.
+        foreach ([1, 3, 4, 5] as $feld) {
+            $keys[] = "_workshop_erwartet_{$feld}_titel";
+            $keys[] = "_workshop_erwartet_{$feld}_text";
+        }
+        return $keys;
+    }
+
+    private function translate_meta_fields($source_id, $target_id, $deepl_target, $meta_keys, $force, &$translation_complete) {
+        foreach ($meta_keys as $meta_key) {
+            $source_value = (string) get_post_meta($source_id, $meta_key, true);
+            if ($source_value === '') continue;
+
+            $target_value = (string) get_post_meta($target_id, $meta_key, true);
+            if (!$force && !$this->is_untranslated_field($target_value, $source_value)) continue;
+
+            update_post_meta($target_id, $meta_key, $this->translate_text($source_value, $deepl_target));
+            $translation_complete = $translation_complete && $this->last_translation_succeeded;
+        }
+    }
+
+    /** Übernimmt die Workshop-Kategorien in der Sprache der Übersetzung. */
+    private function copy_workshop_terms($source_id, $target_id, $target_lang) {
+        $terms = get_the_terms($source_id, 'workshop_kategorie');
+        if (!$terms || is_wp_error($terms)) return;
+
+        $existing = wp_get_object_terms($target_id, 'workshop_kategorie', ['fields' => 'ids']);
+        if (!is_wp_error($existing) && !empty($existing)) return;
+
+        $term_ids = [];
+        foreach ($terms as $term) {
+            $term_id = (int) $term->term_id;
+            if (function_exists('pll_get_term_translations')) {
+                $translations = pll_get_term_translations($term_id);
+                if (!empty($translations[$target_lang])) {
+                    $term_id = (int) $translations[$target_lang];
+                }
+            }
+            $term_ids[] = $term_id;
+        }
+        wp_set_post_terms($target_id, $term_ids, 'workshop_kategorie', false);
+    }
+
+    /** Verknüpft ein übersetztes Thema mit der passenden Workshop-Übersetzung. */
+    private function copy_thema_workshop_relation($source_id, $target_id, $target_lang) {
+        if (!empty(get_post_meta($target_id, '_thema_workshop_id', true))) return;
+
+        $workshop_id = (int) get_post_meta($source_id, '_thema_workshop_id', true);
+        if (!$workshop_id) return;
+
+        if (function_exists('pll_get_post_translations')) {
+            $workshop_translations = pll_get_post_translations($workshop_id);
+            if (!empty($workshop_translations[$target_lang])) {
+                $workshop_id = (int) $workshop_translations[$target_lang];
+            }
+        }
+        update_post_meta($target_id, '_thema_workshop_id', $workshop_id);
     }
 
     private function copy_werk_metadata($source_id, $target_id, $force = false) {
@@ -782,7 +917,7 @@ class MicinterartGallery {
 
     /** Bietet in der Übersicht eine Aktion an, um eine Übersetzung neu zu erzeugen. */
     public function add_retranslate_row_action($actions, $post) {
-        if (!in_array($post->post_type, ['page', 'gedicht', 'werk'], true)) return $actions;
+        if (!in_array($post->post_type, ['page', 'gedicht', 'werk', 'workshop', 'workshop_thema'], true)) return $actions;
         if (!function_exists('pll_get_post_translations')) return $actions;
         if (!current_user_can('edit_post', $post->ID)) return $actions;
 
@@ -829,6 +964,11 @@ class MicinterartGallery {
             case 'werk':
                 $this->copy_werk_metadata($source_id, $post_id, true);
                 return true;
+            case 'workshop':
+            case 'workshop_thema':
+                delete_post_meta($post_id, self::WORKSHOP_TRANSLATION_FLAG);
+                $this->copy_workshop_translation($source_id, $post_id, true);
+                return true;
         }
         return false;
     }
@@ -874,7 +1014,7 @@ class MicinterartGallery {
                         <th scope="row">DeepL API Key</th>
                         <td>
                             <input type="password" name="micinterart_deepl_api_key" value="<?php echo esc_attr(get_option('micinterart_deepl_api_key')); ?>" style="width: 300px;" />
-                            <p class="description">Wird für die automatische Übersetzung von Titel, Beschreibung, Materialien und Galerie-Hinweis (Werke), Titel und Text (Gedichte) sowie Titel und Gutenberg-Inhalt (Seiten) genutzt, sobald du eine Englisch- oder Russisch-Übersetzung anlegst. Es werden nur leere oder noch deutschsprachige Felder befüllt, bestehende Übersetzungen werden nie überschrieben. Eine bereits angelegte Übersetzung lässt sich in der Seiten-, Gedicht- oder Werk-Übersicht über „Neu übersetzen“ erneut erzeugen. Get it at <a href="https://www.deepl.com/pro-api" target="_blank">DeepL</a>.</p>
+                            <p class="description">Wird für die automatische Übersetzung von Titel, Beschreibung, Materialien und Galerie-Hinweis (Werke), Titel und Text (Gedichte), Titel und Gutenberg-Inhalt (Seiten) sowie Titel, Text, Ort, Adresse, Preis-Infos und die „Was dich erwartet“-Felder (Workshops und Workshop-Themen) genutzt, sobald du eine Englisch- oder Russisch-Übersetzung anlegst. Es werden nur leere oder noch deutschsprachige Felder befüllt, bestehende Übersetzungen werden nie überschrieben. Eine bereits angelegte Übersetzung lässt sich in der jeweiligen Übersicht über „Neu übersetzen“ erneut erzeugen. Voraussetzung ist, dass der Inhaltstyp in den PolyLang-Einstellungen als übersetzbar aktiviert ist. Get it at <a href="https://www.deepl.com/pro-api" target="_blank">DeepL</a>.</p>
                         </td>
                     </tr>
                 </table>
