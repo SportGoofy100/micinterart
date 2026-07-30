@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Micinterart Gallery
  * Description: Galerie-Lösung mit CPT "Werk", "Gedicht" und "Workshop", Taxonomie "Serie", erweiterten Metaboxen und Lightbox
- * Version: 2.4.9
+ * Version: 2.4.10
  * Author: Urs
  * Text Domain: micinterart
  * Requires at least: 5.8
@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
 
 class MicinterartGallery {
 
-    private const VERSION = '2.4.9';
+    private const VERSION = '2.4.10';
     private const PAGE_TRANSLATION_FLAG = '_micinterart_page_translation_initialized';
     private const GEDICHT_TRANSLATION_FLAG = '_micinterart_gedicht_translation_initialized';
     private static $instance = null;
@@ -424,7 +424,7 @@ class MicinterartGallery {
 
         $source_id = $this->get_german_translation_id($translations);
         if ($source_id && $source_id != $post_id) {
-            $this->copy_gedicht_metadata($source_id, $post_id);
+            $this->copy_gedicht_metadata($source_id, $post_id, true);
         }
     }
 
@@ -560,11 +560,13 @@ class MicinterartGallery {
     }
 
     /**
-     * Titel, Text und Auszug werden nur beim Anlegen der Übersetzung von
-     * DeepL vorbefüllt, danach bleibt das Gedicht unangetastet. Als
-     * "angelegt" gilt es erst, wenn DeepL wirklich übersetzt hat – ein
-     * leerer Auto-Entwurf oder ein fehlgeschlagener Aufruf verbraucht den
-     * einmaligen Versuch also nicht.
+     * Titel, Text und Auszug werden genau einmal von DeepL vorbefüllt.
+     * "Einmal" bezieht sich dabei auf den Inhalt, nicht auf den Zeitpunkt:
+     * Solange im Zielgedicht noch der deutsche Text steht, wird bei jedem
+     * Speichern erneut übersetzt – auch wenn Gutenberg das Ergebnis des
+     * ersten Versuchs direkt wieder überschrieben hat. Sobald eine
+     * abweichende Fassung in der Datenbank steht, wird sie als Übersetzung
+     * gemerkt und nie wieder angefasst.
      */
     private function copy_gedicht_metadata($source_id, $target_id, $initialize_translation = false, $force = false) {
         $source_post = get_post($source_id);
@@ -582,8 +584,11 @@ class MicinterartGallery {
             && $target_post->post_status !== 'auto-draft'
             && !metadata_exists('post', $target_id, self::GEDICHT_TRANSLATION_FLAG));
 
-        $translated_any = false;
-        $translation_complete = true;
+        if ($is_initial_translation && !$force && $this->has_translated_content($source_post, $target_post)) {
+            update_post_meta($target_id, self::GEDICHT_TRANSLATION_FLAG, '1');
+            $is_initial_translation = false;
+        }
+
         $update_post = [];
         foreach ($is_initial_translation ? ['post_title', 'post_content', 'post_excerpt'] : [] as $field) {
             if (empty($source_post->$field)) continue;
@@ -598,15 +603,8 @@ class MicinterartGallery {
 
             $update_post['ID'] = $target_id;
             $update_post[$field] = $should_translate ? $this->translate_text($source_post->$field, $deepl_target) : $source_post->$field;
-            if ($should_translate) {
-                $translated_any = $translated_any || $this->last_translation_succeeded;
-                $translation_complete = $translation_complete && $this->last_translation_succeeded;
-            }
         }
         $this->update_translation_post($target_id, $update_post);
-        if ($translated_any && $translation_complete) {
-            update_post_meta($target_id, self::GEDICHT_TRANSLATION_FLAG, '1');
-        }
 
         $meta_keys = ['_gedicht_datum'];
         foreach ($meta_keys as $meta_key) {
@@ -625,6 +623,13 @@ class MicinterartGallery {
         if (!has_post_thumbnail($target_id) && has_post_thumbnail($source_id)) {
             set_post_thumbnail($target_id, get_post_thumbnail_id($source_id));
         }
+    }
+
+    /** Steht im Zielgedicht bereits etwas anderes als der deutsche Text? */
+    private function has_translated_content($source_post, $target_post) {
+        $field = !empty($source_post->post_content) ? 'post_content' : 'post_title';
+        return !empty($target_post->$field)
+            && !$this->is_untranslated_field($target_post->$field, $source_post->$field);
     }
 
     private function update_translation_post($target_id, $update_post) {
