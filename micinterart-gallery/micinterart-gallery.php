@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Micinterart Gallery
  * Description: Galerie-Lösung mit CPT "Werk", "Gedicht" und "Workshop", Taxonomie "Serie", erweiterten Metaboxen und Lightbox
- * Version: 2.4.8
+ * Version: 2.4.9
  * Author: Urs
  * Text Domain: micinterart
  * Requires at least: 5.8
@@ -21,8 +21,9 @@ if (!defined('ABSPATH')) {
 
 class MicinterartGallery {
 
-    private const VERSION = '2.4.8';
+    private const VERSION = '2.4.9';
     private const PAGE_TRANSLATION_FLAG = '_micinterart_page_translation_initialized';
+    private const GEDICHT_TRANSLATION_FLAG = '_micinterart_gedicht_translation_initialized';
     private static $instance = null;
     /** Verhindert erneute Synchronisierungen, die durch wp_update_post ausgelöst werden. */
     private $translation_sync_in_progress = [];
@@ -446,7 +447,7 @@ class MicinterartGallery {
             if ($post_type === 'werk') {
                 $this->copy_werk_metadata($source_id, $translation_id);
             } else {
-                $this->copy_gedicht_metadata($source_id, $translation_id);
+                $this->copy_gedicht_metadata($source_id, $translation_id, true);
             }
         }
     }
@@ -559,13 +560,13 @@ class MicinterartGallery {
     }
 
     /**
-     * Titel, Text und Auszug werden bei jedem Speichern nachgezogen, solange
-     * das Zielfeld leer ist oder noch dem deutschen Original entspricht.
-     * Redaktionell überarbeitete Übersetzungen bleiben dadurch unverändert,
-     * ein fehlgeschlagener DeepL-Aufruf blockiert die Übersetzung aber nicht
-     * dauerhaft.
+     * Titel, Text und Auszug werden nur beim Anlegen der Übersetzung von
+     * DeepL vorbefüllt, danach bleibt das Gedicht unangetastet. Als
+     * "angelegt" gilt es erst, wenn DeepL wirklich übersetzt hat – ein
+     * leerer Auto-Entwurf oder ein fehlgeschlagener Aufruf verbraucht den
+     * einmaligen Versuch also nicht.
      */
-    private function copy_gedicht_metadata($source_id, $target_id, $force = false) {
+    private function copy_gedicht_metadata($source_id, $target_id, $initialize_translation = false, $force = false) {
         $source_post = get_post($source_id);
         $target_post = get_post($target_id);
         
@@ -577,21 +578,35 @@ class MicinterartGallery {
         }
         $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
         $should_translate = $deepl_target !== '';
+        $is_initial_translation = $force || ($initialize_translation
+            && $target_post->post_status !== 'auto-draft'
+            && !metadata_exists('post', $target_id, self::GEDICHT_TRANSLATION_FLAG));
 
+        $translated_any = false;
+        $translation_complete = true;
         $update_post = [];
-        if (($force || $this->is_empty_translation_title($target_post) || ($should_translate && $this->is_untranslated_field($target_post->post_title, $source_post->post_title))) && !empty($source_post->post_title)) {
+        foreach ($is_initial_translation ? ['post_title', 'post_content', 'post_excerpt'] : [] as $field) {
+            if (empty($source_post->$field)) continue;
+
+            $is_empty_target = $field === 'post_title'
+                ? $this->is_empty_translation_title($target_post)
+                : empty($target_post->$field);
+            if (!$force && !$is_empty_target
+                && !($should_translate && $this->is_untranslated_field($target_post->$field, $source_post->$field))) {
+                continue;
+            }
+
             $update_post['ID'] = $target_id;
-            $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $deepl_target) : $source_post->post_title;
-        }
-        if (($force || empty($target_post->post_content) || ($should_translate && $this->is_untranslated_field($target_post->post_content, $source_post->post_content))) && !empty($source_post->post_content)) {
-            $update_post['ID'] = $target_id;
-            $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $deepl_target) : $source_post->post_content;
-        }
-        if (($force || empty($target_post->post_excerpt) || ($should_translate && $this->is_untranslated_field($target_post->post_excerpt, $source_post->post_excerpt))) && !empty($source_post->post_excerpt)) {
-            $update_post['ID'] = $target_id;
-            $update_post['post_excerpt'] = $should_translate ? $this->translate_text($source_post->post_excerpt, $deepl_target) : $source_post->post_excerpt;
+            $update_post[$field] = $should_translate ? $this->translate_text($source_post->$field, $deepl_target) : $source_post->$field;
+            if ($should_translate) {
+                $translated_any = $translated_any || $this->last_translation_succeeded;
+                $translation_complete = $translation_complete && $this->last_translation_succeeded;
+            }
         }
         $this->update_translation_post($target_id, $update_post);
+        if ($translated_any && $translation_complete) {
+            update_post_meta($target_id, self::GEDICHT_TRANSLATION_FLAG, '1');
+        }
 
         $meta_keys = ['_gedicht_datum'];
         foreach ($meta_keys as $meta_key) {
@@ -818,7 +833,8 @@ class MicinterartGallery {
                 $this->copy_page_translation($source_id, $post_id, true);
                 return true;
             case 'gedicht':
-                $this->copy_gedicht_metadata($source_id, $post_id, true);
+                delete_post_meta($post_id, self::GEDICHT_TRANSLATION_FLAG);
+                $this->copy_gedicht_metadata($source_id, $post_id, true, true);
                 return true;
             case 'werk':
                 $this->copy_werk_metadata($source_id, $post_id, true);
