@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Micinterart Gallery
  * Description: Galerie-Lösung mit CPT "Werk", "Gedicht" und "Workshop", Taxonomie "Serie", erweiterten Metaboxen und Lightbox
- * Version: 2.4.6
+ * Version: 2.4.7
  * Author: Urs
  * Text Domain: micinterart
  * Requires at least: 5.8
@@ -21,10 +21,14 @@ if (!defined('ABSPATH')) {
 
 class MicinterartGallery {
 
-    private const VERSION = '2.4.6';
+    private const VERSION = '2.4.7';
+    private const PAGE_TRANSLATION_FLAG = '_micinterart_page_translation_initialized';
+    private const GEDICHT_TRANSLATION_FLAG = '_micinterart_gedicht_translation_initialized';
     private static $instance = null;
     /** Verhindert erneute Synchronisierungen, die durch wp_update_post ausgelöst werden. */
     private $translation_sync_in_progress = [];
+    /** Wird von translate_text() gesetzt und zeigt an, ob DeepL geantwortet hat. */
+    private $last_translation_succeeded = true;
 
     public static function get_instance(): self {
         if (null === self::$instance) {
@@ -59,6 +63,10 @@ class MicinterartGallery {
         add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
         add_action('admin_menu', [$this, 'add_plugin_settings_menu']);
         add_action('admin_init', [$this, 'register_plugin_settings']);
+        add_filter('page_row_actions', [$this, 'add_retranslate_row_action'], 10, 2);
+        add_filter('post_row_actions', [$this, 'add_retranslate_row_action'], 10, 2);
+        add_action('admin_post_micinterart_retranslate', [$this, 'handle_retranslate_request']);
+        add_action('admin_notices', [$this, 'render_retranslate_notice']);
         
         add_action('wp_ajax_micinterart_get_werk_details', [$this, 'ajax_get_werk_details']);
         add_action('wp_ajax_nopriv_micinterart_get_werk_details', [$this, 'ajax_get_werk_details']);
@@ -459,10 +467,12 @@ class MicinterartGallery {
     /**
      * Titel und Gutenberg-Inhalt werden nur beim ersten Anlegen der
      * Zielseite übersetzt. Bereits redaktionell gepflegte Seiten bleiben
-     * unverändert.
+     * unverändert. Die Merkung als "übersetzt" erfolgt erst, wenn DeepL
+     * tatsächlich geantwortet hat – sonst wird beim nächsten Speichern
+     * erneut versucht zu übersetzen.
      */
-    private function copy_page_translation($source_id, $target_id) {
-        if (metadata_exists('post', $target_id, '_micinterart_page_translation_initialized')) return;
+    private function copy_page_translation($source_id, $target_id, $force = false) {
+        if (!$force && metadata_exists('post', $target_id, self::PAGE_TRANSLATION_FLAG)) return;
 
         $source_post = get_post($source_id);
         $target_post = get_post($target_id);
@@ -470,23 +480,33 @@ class MicinterartGallery {
 
         $target_lang = pll_get_post_language($target_id, 'slug');
         $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
-        if ($deepl_target === '') return;
+        if ($deepl_target === '') {
+            $this->record_deepl_error(sprintf('Für die Sprache "%s" ist kein DeepL-Zielcode hinterlegt, die Seite wurde nicht übersetzt.', (string) $target_lang));
+            return;
+        }
 
+        $translation_complete = true;
         $update_post = [];
-        if (($this->is_empty_translation_title($target_post) || $target_post->post_title === $source_post->post_title) && !empty($source_post->post_title)) {
+        if (!empty($source_post->post_title)
+            && ($force || $this->is_empty_translation_title($target_post) || $this->is_untranslated_field($target_post->post_title, $source_post->post_title))) {
             $update_post['ID'] = $target_id;
             $update_post['post_title'] = $this->translate_text($source_post->post_title, $deepl_target);
+            $translation_complete = $translation_complete && $this->last_translation_succeeded;
         }
-        if ((empty($target_post->post_content) || $target_post->post_content === $source_post->post_content) && !empty($source_post->post_content)) {
+        if (!empty($source_post->post_content)
+            && ($force || $this->is_untranslated_field($target_post->post_content, $source_post->post_content))) {
             $update_post['ID'] = $target_id;
             $update_post['post_content'] = $this->translate_text($source_post->post_content, $deepl_target);
+            $translation_complete = $translation_complete && $this->last_translation_succeeded;
         }
 
         $this->update_translation_post($target_id, $update_post);
-        update_post_meta($target_id, '_micinterart_page_translation_initialized', '1');
+        if ($translation_complete) {
+            update_post_meta($target_id, self::PAGE_TRANSLATION_FLAG, '1');
+        }
     }
 
-    private function copy_werk_metadata($source_id, $target_id) {
+    private function copy_werk_metadata($source_id, $target_id, $force = false) {
         $source_post = get_post($source_id);
         $target_post = get_post($target_id);
         
@@ -499,15 +519,15 @@ class MicinterartGallery {
         $deepl_target = $this->get_deepl_target_language($target_id, $target_lang);
         $should_translate = $deepl_target !== '';
         $update_post = [];
-        if (($this->is_empty_translation_title($target_post) || ($should_translate && $target_post->post_title === $source_post->post_title)) && !empty($source_post->post_title)) {
+        if (($force || $this->is_empty_translation_title($target_post) || ($should_translate && $this->is_untranslated_field($target_post->post_title, $source_post->post_title))) && !empty($source_post->post_title)) {
             $update_post['ID'] = $target_id;
             $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $deepl_target) : $source_post->post_title;
         }
-        if ((empty($target_post->post_content) || ($should_translate && $target_post->post_content === $source_post->post_content)) && !empty($source_post->post_content)) {
+        if (($force || empty($target_post->post_content) || ($should_translate && $this->is_untranslated_field($target_post->post_content, $source_post->post_content))) && !empty($source_post->post_content)) {
             $update_post['ID'] = $target_id;
             $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $deepl_target) : $source_post->post_content;
         }
-        if ((empty($target_post->post_excerpt) || ($should_translate && $target_post->post_excerpt === $source_post->post_excerpt)) && !empty($source_post->post_excerpt)) {
+        if (($force || empty($target_post->post_excerpt) || ($should_translate && $this->is_untranslated_field($target_post->post_excerpt, $source_post->post_excerpt))) && !empty($source_post->post_excerpt)) {
             $update_post['ID'] = $target_id;
             $update_post['post_excerpt'] = $should_translate ? $this->translate_text($source_post->post_excerpt, $deepl_target) : $source_post->post_excerpt;
         }
@@ -539,7 +559,7 @@ class MicinterartGallery {
         }
     }
 
-    private function copy_gedicht_metadata($source_id, $target_id, $initialize_translation = false) {
+    private function copy_gedicht_metadata($source_id, $target_id, $initialize_translation = false, $force = false) {
         $source_post = get_post($source_id);
         $target_post = get_post($target_id);
         
@@ -553,25 +573,29 @@ class MicinterartGallery {
         $should_translate = $deepl_target !== '';
         // Nur beim Anlegen darf DeepL Titel und Text vorbefüllen. Danach
         // bleibt jede redaktionell eingetragene Übersetzung unverändert.
-        $is_initial_translation = $initialize_translation
-            && !metadata_exists('post', $target_id, '_micinterart_gedicht_translation_initialized');
+        $is_initial_translation = $force || ($initialize_translation
+            && !metadata_exists('post', $target_id, self::GEDICHT_TRANSLATION_FLAG));
 
+        $translation_complete = true;
         $update_post = [];
-        if ($is_initial_translation && ($this->is_empty_translation_title($target_post) || ($should_translate && $target_post->post_title === $source_post->post_title)) && !empty($source_post->post_title)) {
+        if ($is_initial_translation && ($force || $this->is_empty_translation_title($target_post) || ($should_translate && $this->is_untranslated_field($target_post->post_title, $source_post->post_title))) && !empty($source_post->post_title)) {
             $update_post['ID'] = $target_id;
             $update_post['post_title'] = $should_translate ? $this->translate_text($source_post->post_title, $deepl_target) : $source_post->post_title;
+            $translation_complete = $translation_complete && $this->last_translation_succeeded;
         }
-        if ($is_initial_translation && (empty($target_post->post_content) || ($should_translate && $target_post->post_content === $source_post->post_content)) && !empty($source_post->post_content)) {
+        if ($is_initial_translation && ($force || empty($target_post->post_content) || ($should_translate && $this->is_untranslated_field($target_post->post_content, $source_post->post_content))) && !empty($source_post->post_content)) {
             $update_post['ID'] = $target_id;
             $update_post['post_content'] = $should_translate ? $this->translate_text($source_post->post_content, $deepl_target) : $source_post->post_content;
+            $translation_complete = $translation_complete && $this->last_translation_succeeded;
         }
-        if ($is_initial_translation && (empty($target_post->post_excerpt) || ($should_translate && $target_post->post_excerpt === $source_post->post_excerpt)) && !empty($source_post->post_excerpt)) {
+        if ($is_initial_translation && ($force || empty($target_post->post_excerpt) || ($should_translate && $this->is_untranslated_field($target_post->post_excerpt, $source_post->post_excerpt))) && !empty($source_post->post_excerpt)) {
             $update_post['ID'] = $target_id;
             $update_post['post_excerpt'] = $should_translate ? $this->translate_text($source_post->post_excerpt, $deepl_target) : $source_post->post_excerpt;
+            $translation_complete = $translation_complete && $this->last_translation_succeeded;
         }
         $this->update_translation_post($target_id, $update_post);
-        if ($is_initial_translation) {
-            update_post_meta($target_id, '_micinterart_gedicht_translation_initialized', '1');
+        if ($is_initial_translation && $translation_complete) {
+            update_post_meta($target_id, self::GEDICHT_TRANSLATION_FLAG, '1');
         }
 
         $meta_keys = ['_gedicht_datum'];
@@ -597,13 +621,33 @@ class MicinterartGallery {
         if (empty($update_post)) return;
 
         $this->translation_sync_in_progress[$target_id] = true;
-        wp_update_post($update_post);
+        // wp_update_post erwartet maskierte Daten und entfernt sonst
+        // Backslashes aus dem übersetzten Text.
+        wp_update_post(wp_slash($update_post));
         unset($this->translation_sync_in_progress[$target_id]);
     }
 
     private function is_empty_translation_title($post) {
         return empty($post->post_title)
             || ($post->post_status === 'auto-draft' && $post->post_title === 'Auto Draft');
+    }
+
+    /**
+     * Ein Feld gilt als noch nicht übersetzt, wenn es leer ist oder – nach
+     * Abzug von Markup und Leerraum – dem deutschen Original entspricht.
+     * PolyLang kopiert Gutenberg-Inhalte häufig mit geänderten Medien-IDs
+     * und Blockattributen, ein Zeichenvergleich würde dann fehlschlagen.
+     */
+    private function is_untranslated_field($target_value, $source_value) {
+        if (trim((string) $target_value) === '') return true;
+        return $this->normalize_for_comparison($target_value) === $this->normalize_for_comparison($source_value);
+    }
+
+    private function normalize_for_comparison($value) {
+        $plain = wp_strip_all_tags((string) $value);
+        $plain = html_entity_decode($plain, ENT_QUOTES, 'UTF-8');
+        $plain = preg_replace('/\s+/u', ' ', $plain);
+        return trim(function_exists('mb_strtolower') ? mb_strtolower($plain, 'UTF-8') : strtolower($plain));
     }
 
     /** Verknüpft ein übersetztes Gedicht mit der passenden Werk-Übersetzung. */
@@ -627,11 +671,19 @@ class MicinterartGallery {
      * $deepl_target ist ein DeepL-Sprachcode, z.B. 'EN-GB' oder 'RU'.
      */
     private function translate_text($text, $deepl_target) {
+        $this->last_translation_succeeded = true;
         if (empty($text)) return $text;
 
         $api_key = get_option('micinterart_deepl_api_key', '');
-        if (empty($api_key)) return $text;
-        if (!$deepl_target) return $text;
+        if (empty($api_key)) {
+            $this->last_translation_succeeded = false;
+            $this->record_deepl_error('Es ist kein DeepL API-Schlüssel hinterlegt, es wurde nichts übersetzt.');
+            return $text;
+        }
+        if (!$deepl_target) {
+            $this->last_translation_succeeded = false;
+            return $text;
+        }
 
         // DeepL Free-Keys enden auf ":fx" und nutzen einen anderen Endpunkt als Pro-Keys.
         $api_url = (substr($api_key, -3) === ':fx')
@@ -659,6 +711,7 @@ class MicinterartGallery {
             $message = 'DeepL-Verbindung fehlgeschlagen: ' . $response->get_error_message();
             error_log($message);
             $this->record_deepl_error($message);
+            $this->last_translation_succeeded = false;
             return $text;
         }
 
@@ -667,6 +720,7 @@ class MicinterartGallery {
             $message = 'DeepL antwortet mit HTTP ' . wp_remote_retrieve_response_code($response) . '. Bitte API-Schlüssel und API-Zugang prüfen.';
             error_log($message . ' Antwort: ' . $response_body);
             $this->record_deepl_error($message);
+            $this->last_translation_succeeded = false;
             return $text;
         }
 
@@ -678,6 +732,7 @@ class MicinterartGallery {
 
         error_log('DeepL Translation Error: unexpected API response.');
         $this->record_deepl_error('DeepL hat eine unerwartete Antwort zurückgegeben.');
+        $this->last_translation_succeeded = false;
         return $text;
     }
 
@@ -723,6 +778,77 @@ class MicinterartGallery {
         return '';
     }
 
+    // ===== MANUELLE NEUÜBERSETZUNG =====
+
+    /** Bietet in der Übersicht eine Aktion an, um eine Übersetzung neu zu erzeugen. */
+    public function add_retranslate_row_action($actions, $post) {
+        if (!in_array($post->post_type, ['page', 'gedicht', 'werk'], true)) return $actions;
+        if (!function_exists('pll_get_post_translations')) return $actions;
+        if (!current_user_can('edit_post', $post->ID)) return $actions;
+
+        $source_id = $this->get_german_translation_id(pll_get_post_translations($post->ID));
+        if (!$source_id || $source_id == $post->ID) return $actions;
+
+        $url = wp_nonce_url(
+            admin_url('admin-post.php?action=micinterart_retranslate&post=' . $post->ID),
+            'micinterart_retranslate_' . $post->ID
+        );
+        $actions['micinterart_retranslate'] = '<a href="' . esc_url($url) . '">Neu übersetzen</a>';
+        return $actions;
+    }
+
+    public function handle_retranslate_request() {
+        $post_id = isset($_GET['post']) ? (int) $_GET['post'] : 0;
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
+            wp_die('Keine Berechtigung für diese Übersetzung.');
+        }
+        check_admin_referer('micinterart_retranslate_' . $post_id);
+
+        $status = $this->retranslate_post($post_id) ? 'ok' : 'failed';
+        $redirect = wp_get_referer() ?: admin_url('edit.php?post_type=' . get_post_type($post_id));
+        wp_safe_redirect(add_query_arg('micinterart_retranslated', $status, $redirect));
+        exit;
+    }
+
+    /** Verwirft die Merkung als "übersetzt" und übersetzt aus dem Deutschen neu. */
+    private function retranslate_post($post_id) {
+        if (!function_exists('pll_get_post_translations')) return false;
+
+        $source_id = $this->get_german_translation_id(pll_get_post_translations($post_id));
+        if (!$source_id || $source_id == $post_id) return false;
+
+        switch (get_post_type($post_id)) {
+            case 'page':
+                delete_post_meta($post_id, self::PAGE_TRANSLATION_FLAG);
+                $this->copy_page_translation($source_id, $post_id, true);
+                return true;
+            case 'gedicht':
+                delete_post_meta($post_id, self::GEDICHT_TRANSLATION_FLAG);
+                $this->copy_gedicht_metadata($source_id, $post_id, true, true);
+                return true;
+            case 'werk':
+                $this->copy_werk_metadata($source_id, $post_id, true);
+                return true;
+        }
+        return false;
+    }
+
+    public function render_retranslate_notice() {
+        if (!isset($_GET['micinterart_retranslated'])) return;
+
+        $status = sanitize_key(wp_unslash($_GET['micinterart_retranslated']));
+        $deepl_error = get_option('micinterart_deepl_last_error');
+        if ($status === 'ok' && !(is_array($deepl_error) && !empty($deepl_error['message']))) {
+            echo '<div class="notice notice-success is-dismissible"><p>Übersetzung wurde neu von DeepL erzeugt.</p></div>';
+            return;
+        }
+
+        $message = is_array($deepl_error) && !empty($deepl_error['message'])
+            ? $deepl_error['message']
+            : 'Es wurde keine deutsche Ausgangsfassung gefunden.';
+        echo '<div class="notice notice-error is-dismissible"><p>Übersetzung fehlgeschlagen: ' . esc_html($message) . '</p></div>';
+    }
+
     public function add_plugin_settings_menu() {
         add_submenu_page('options-general.php', 'Micinterart Settings', 'Micinterart', 'manage_options', 'micinterart-settings', [$this, 'render_plugin_settings_page']);
     }
@@ -748,7 +874,7 @@ class MicinterartGallery {
                         <th scope="row">DeepL API Key</th>
                         <td>
                             <input type="password" name="micinterart_deepl_api_key" value="<?php echo esc_attr(get_option('micinterart_deepl_api_key')); ?>" style="width: 300px;" />
-                            <p class="description">Wird für die automatische Übersetzung von Titel, Beschreibung, Materialien und Galerie-Hinweis (Werke) sowie Titel und Text (Gedichte) genutzt, sobald du eine Englisch- oder Russisch-Übersetzung anlegst. Es werden nur leere Felder befüllt, bestehende Übersetzungen werden nie überschrieben. Get it at <a href="https://www.deepl.com/pro-api" target="_blank">DeepL</a>.</p>
+                            <p class="description">Wird für die automatische Übersetzung von Titel, Beschreibung, Materialien und Galerie-Hinweis (Werke), Titel und Text (Gedichte) sowie Titel und Gutenberg-Inhalt (Seiten) genutzt, sobald du eine Englisch- oder Russisch-Übersetzung anlegst. Es werden nur leere oder noch deutschsprachige Felder befüllt, bestehende Übersetzungen werden nie überschrieben. Eine bereits angelegte Übersetzung lässt sich in der Seiten-, Gedicht- oder Werk-Übersicht über „Neu übersetzen“ erneut erzeugen. Get it at <a href="https://www.deepl.com/pro-api" target="_blank">DeepL</a>.</p>
                         </td>
                     </tr>
                 </table>
