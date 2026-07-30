@@ -398,7 +398,8 @@ $is_en = micinterart_is_english();
     color: #616161;
 }
 
-.werk-represented-badge {
+.werk-represented-badge,
+.werk-exhibited-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -412,6 +413,13 @@ $is_en = micinterart_is_english();
     font-weight: 600;
     letter-spacing: 0.3px;
     box-shadow: 0 2px 5px rgba(212,175,55,0.08);
+}
+
+.werk-exhibited-badge {
+    background: #f4f8fb;
+    border-color: #9fb8cd;
+    color: #4a6a83;
+    box-shadow: 0 2px 5px rgba(74,106,131,0.08);
 }
 </style>
 
@@ -478,8 +486,9 @@ $is_en = micinterart_is_english();
     $dimensions = micinterart_get_translated_meta(get_the_ID(), '_werk_dimensions', true);
     $year       = micinterart_get_translated_meta(get_the_ID(), '_werk_year', true);
     $represented = micinterart_get_translated_meta(get_the_ID(), '_werk_represented', true);
+    $exhibited = micinterart_get_translated_meta(get_the_ID(), '_werk_exhibited', true);
 
-    if ($materials || $dimensions || $year || $represented) {
+    if ($materials || $dimensions || $year || $represented || $exhibited) {
         echo '<div class="werk-meta">';
         if ($year) {
             echo '<div class="werk-meta-item">';
@@ -503,6 +512,12 @@ $is_en = micinterart_is_english();
         if ($represented) {
             echo '<div class="werk-meta-item" style="grid-column: 1 / -1;">';
             echo '<span class="werk-represented-badge">👑 ' . ($is_en ? 'Represented by ' : 'Vertreten durch ') . esc_html($represented) . '</span>';
+            echo '</div>';
+        }
+
+        if ($exhibited) {
+            echo '<div class="werk-meta-item" style="grid-column: 1 / -1;">';
+            echo '<span class="werk-exhibited-badge">🏛️ ' . ($is_en ? 'Exhibited at ' : 'Ausgestellt bei ') . esc_html($exhibited) . '</span>';
             echo '</div>';
         }
         echo '</div>';

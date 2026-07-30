@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Micinterart Gallery
  * Description: Galerie-Lösung mit CPT "Werk", "Gedicht" und "Workshop", Taxonomie "Serie", erweiterten Metaboxen und Lightbox
- * Version: 2.4.10
+ * Version: 2.5.0
  * Author: Urs
  * Text Domain: micinterart
  * Requires at least: 5.8
@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
 
 class MicinterartGallery {
 
-    private const VERSION = '2.4.10';
+    private const VERSION = '2.5.0';
     private const PAGE_TRANSLATION_FLAG = '_micinterart_page_translation_initialized';
     private const GEDICHT_TRANSLATION_FLAG = '_micinterart_gedicht_translation_initialized';
     private static $instance = null;
@@ -183,6 +183,7 @@ class MicinterartGallery {
         $format = get_post_meta($post->ID, '_werk_dimensions', true);
         $preis = get_post_meta($post->ID, '_werk_preis', true);
         $represented = get_post_meta($post->ID, '_werk_represented', true);
+        $exhibited = get_post_meta($post->ID, '_werk_exhibited', true);
         ?>
         <p><label>Jahr:</label><br><input type="text" name="werk_jahr" value="<?php echo esc_attr($jahr); ?>" class="widefat"></p>
         <p><label>Materialien:</label><br><input type="text" name="werk_technik" value="<?php echo esc_attr($technik); ?>" class="widefat"></p>
@@ -191,6 +192,9 @@ class MicinterartGallery {
         <p><label>Galerie-Hinweis (z. B. "Galerie Helligkeit"):</label><br>
         <input type="text" name="werk_represented" value="<?php echo esc_attr($represented); ?>" class="widefat" placeholder="Leer lassen, falls nicht zutreffend">
         <span class="description">Wird im Frontend als "Represented by [Text]" bzw. "Vertreten durch [Text]" angezeigt, wenn ausgefüllt.</span></p>
+        <p><label>Ausgestellt bei (z. B. "Kunstverein Morsbach"):</label><br>
+        <input type="text" name="werk_exhibited" value="<?php echo esc_attr($exhibited); ?>" class="widefat" placeholder="Leer lassen, falls nicht zutreffend">
+        <span class="description">Wird im Frontend als "Exhibited at [Text]" bzw. "Ausgestellt bei [Text]" angezeigt, wenn ausgefüllt.</span></p>
         <?php
     }
 
@@ -202,12 +206,15 @@ class MicinterartGallery {
             if(isset($_POST[$post_key])) update_post_meta($post_id, $meta_key, sanitize_text_field($_POST[$post_key]));
         }
 
-        if (isset($_POST['werk_represented'])) {
-            $represented = sanitize_text_field($_POST['werk_represented']);
-            if ($represented !== '') {
-                update_post_meta($post_id, '_werk_represented', $represented);
+        $optional_fields = ['_werk_represented' => 'werk_represented', '_werk_exhibited' => 'werk_exhibited'];
+        foreach ($optional_fields as $meta_key => $post_key) {
+            if (!isset($_POST[$post_key])) continue;
+
+            $value = sanitize_text_field($_POST[$post_key]);
+            if ($value !== '') {
+                update_post_meta($post_id, $meta_key, $value);
             } else {
-                delete_post_meta($post_id, '_werk_represented');
+                delete_post_meta($post_id, $meta_key);
             }
         }
     }
@@ -533,14 +540,15 @@ class MicinterartGallery {
         }
         $this->update_translation_post($target_id, $update_post);
 
-        $meta_keys = ['_werk_year', '_werk_materials', '_werk_dimensions', '_werk_preis', '_werk_represented', '_werk_additional_images'];
+        $meta_keys = ['_werk_year', '_werk_materials', '_werk_dimensions', '_werk_preis', '_werk_represented', '_werk_exhibited', '_werk_additional_images'];
+        $translatable_keys = ['_werk_materials', '_werk_represented', '_werk_exhibited'];
         foreach ($meta_keys as $meta_key) {
             $target_value = get_post_meta($target_id, $meta_key, true);
             
-            if (empty($target_value) || ($should_translate && in_array($meta_key, ['_werk_materials', '_werk_represented'], true) && $target_value === get_post_meta($source_id, $meta_key, true))) {
+            if (empty($target_value) || ($should_translate && in_array($meta_key, $translatable_keys, true) && $target_value === get_post_meta($source_id, $meta_key, true))) {
                 $source_value = get_post_meta($source_id, $meta_key, true);
                 if (!empty($source_value)) {
-                    if ($should_translate && in_array($meta_key, ['_werk_materials', '_werk_represented'])) {
+                    if ($should_translate && in_array($meta_key, $translatable_keys, true)) {
                         $source_value = $this->translate_text($source_value, $deepl_target);
                     }
                     update_post_meta($target_id, $meta_key, $source_value);

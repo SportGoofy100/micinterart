@@ -346,7 +346,8 @@ $is_en = micinterart_is_english();
 .werk-item:nth-child(6) { animation-delay: 0.6s; }
 
 /* Representation Badge */
-.werk-represented-badge {
+.werk-represented-badge,
+.werk-exhibited-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -360,6 +361,13 @@ $is_en = micinterart_is_english();
     font-weight: 600;
     letter-spacing: 0.3px;
     box-shadow: 0 2px 5px rgba(212,175,55,0.08);
+}
+
+.werk-exhibited-badge {
+    background: #f4f8fb;
+    border-color: #9fb8cd;
+    color: #4a6a83;
+    box-shadow: 0 2px 5px rgba(74,106,131,0.08);
 }
 </style>
 
@@ -416,8 +424,9 @@ $is_en = micinterart_is_english();
                             $dimensions = micinterart_get_translated_meta(get_the_ID(), '_werk_dimensions', true);
                             $materials = micinterart_get_translated_meta(get_the_ID(), '_werk_materials', true);
                             $represented = micinterart_get_translated_meta(get_the_ID(), '_werk_represented', true);
+                            $exhibited = micinterart_get_translated_meta(get_the_ID(), '_werk_exhibited', true);
                             
-                            if ($year || $dimensions || $materials || $represented) :
+                            if ($year || $dimensions || $materials || $represented || $exhibited) :
                                 ?>
                                 <div class="werk-meta">
                                     <?php if ($year) : ?>
@@ -436,6 +445,13 @@ $is_en = micinterart_is_english();
                                     <div class="werk-meta-status">
                                         <span class="werk-represented-badge">
                                             👑 <?php echo $is_en ? 'Represented by ' : 'Vertreten durch '; ?><?php echo esc_html($represented); ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($exhibited) : ?>
+                                    <div class="werk-meta-status">
+                                        <span class="werk-exhibited-badge">
+                                            🏛️ <?php echo $is_en ? 'Exhibited at ' : 'Ausgestellt bei '; ?><?php echo esc_html($exhibited); ?>
                                         </span>
                                     </div>
                                 <?php endif; ?>
