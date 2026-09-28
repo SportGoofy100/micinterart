@@ -294,7 +294,7 @@ Bei Fragen oder Problemen:
 3. ✅ Templates anpassen
 4. ✅ 301-Weiterleitungen einrichten
 5. ✅ Checkout-Anpassungen
-6. ⏳ **Auf Staging deployen und testen**
+6. ✅ **Auf Staging deployen und testen**
 7. ⏳ **Live schalten**
 
 ## Technik-Stack
