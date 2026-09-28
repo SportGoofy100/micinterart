@@ -2,6 +2,8 @@
 /**
  * Template für Workshop-Übersicht mit WooCommerce-Produkten
  * 
+ * Zeigt Workshops als WC-Produkte mit dem gleichen Design wie archive-workshop.php
+ * 
  * @package Micinterart
  */
 
@@ -18,261 +20,13 @@ if (!class_exists('WooCommerce')) {
 
 get_header();
 $is_en = (function_exists('pll_current_language') && pll_current_language() === 'en');
-
-// Holen aller Workshop-Produkte
-$heute = date('Y-m-d');
-
-// Workshop-Kategorie Term holen
-$workshops_term = get_term_by('slug', 'workshops', 'product_cat');
-$atelierkurse_term = get_term_by('slug', 'atelierkurse', 'product_cat');
-$kinderworkshops_term = get_term_by('slug', 'kinderworkshops', 'product_cat');
-
-// Sammle alle Workshops nach Kategorie
-$atelierkurse_products = [];
-$kinderworkshops_products = [];
-$archiv_products = [];
-
-if ($workshops_term) {
-    // Alle Workshops holen
-    $workshops_query = new WP_Query([
-        'post_type' => 'product',
-        'posts_per_page' => -1,
-        'post_status' => 'publish',
-        'tax_query' => [
-            [
-                'taxonomy' => 'product_cat',
-                'field' => 'term_id',
-                'terms' => $workshops_term->term_id,
-                'include_children' => true,
-            ],
-        ],
-        'meta_query' => [
-            'relation' => 'OR',
-            [
-                'key' => '_workshop_datum',
-                'value' => $heute,
-                'compare' => '>=',
-                'type' => 'DATE',
-            ],
-            [
-                'key' => '_workshop_datum',
-                'compare' => 'NOT EXISTS',
-            ],
-            [
-                'key' => '_workshop_datum',
-                'value' => '',
-                'compare' => '=',
-            ],
-        ],
-        'orderby' => 'meta_value',
-        'meta_key' => '_workshop_datum',
-        'order' => 'ASC',
-    ]);
-
-    if ($workshops_query->have_posts()) {
-        while ($workshops_query->have_posts()) {
-            $workshops_query->the_post();
-            $product_id = get_the_ID();
-            $product = wc_get_product($product_id);
-
-            // Prüfen ob Produkt ein Workshop ist
-            $is_workshop = false;
-            $terms = get_the_terms($product_id, 'product_cat');
-            if ($terms && !is_wp_error($terms)) {
-                foreach ($terms as $term) {
-                    if ($term->slug === 'workshops' || $term->slug === 'atelierkurse' || $term->slug === 'kinderworkshops') {
-                        $is_workshop = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!$is_workshop) continue;
-
-            $datum = get_post_meta($product_id, '_workshop_datum', true);
-            $status = get_post_meta($product_id, '_workshop_status', true) ?: 'geplant';
-            $stock = $product ? $product->get_stock_quantity() : 0;
-            $is_past = !empty($datum) && $datum < $heute;
-
-            // Kategorie bestimmen
-            $is_kinder = false;
-            $is_erwachsene = false;
-
-            if ($kinderworkshops_term && has_term($kinderworkshops_term->term_id, 'product_cat', $product_id)) {
-                $is_kinder = true;
-            } elseif ($atelierkurse_term && has_term($atelierkurse_term->term_id, 'product_cat', $product_id)) {
-                $is_erwachsene = true;
-            } else {
-                $is_erwachsene = true; // Default
-            }
-
-            $workshop_data = [
-                'post' => get_post($product_id),
-                'product' => $product,
-                'status' => $status,
-                'datum' => $datum,
-                'stock' => $stock,
-                'is_kind' => $is_kinder,
-                'is_past' => $is_past,
-                'nach_absprache' => empty($datum),
-            ];
-
-            if ($is_kinder) {
-                $kinderworkshops_products[] = $workshop_data;
-            } elseif ($is_erwachsene) {
-                $atelierkurse_products[] = $workshop_data;
-            }
-        }
-        wp_reset_postdata();
-    }
-
-    // Vergangene Workshops für Archiv
-    $past_query = new WP_Query([
-        'post_type' => 'product',
-        'posts_per_page' => -1,
-        'post_status' => 'publish',
-        'tax_query' => [
-            [
-                'taxonomy' => 'product_cat',
-                'field' => 'term_id',
-                'terms' => $workshops_term->term_id,
-                'include_children' => true,
-            ],
-        ],
-        'meta_query' => [
-            [
-                'key' => '_workshop_datum',
-                'value' => $heute,
-                'compare' => '<',
-                'type' => 'DATE',
-            ],
-        ],
-        'orderby' => 'meta_value',
-        'meta_key' => '_workshop_datum',
-        'order' => 'DESC',
-    ]);
-
-    if ($past_query->have_posts()) {
-        while ($past_query->have_posts()) {
-            $past_query->the_post();
-            $product_id = get_the_ID();
-            $datum = get_post_meta($product_id, '_workshop_datum', true);
-            $status = get_post_meta($product_id, '_workshop_status', true) ?: 'beendet';
-
-            $archiv_products[] = [
-                'post' => get_post($product_id),
-                'status' => $status,
-                'datum' => $datum,
-                'is_past' => true,
-            ];
-        }
-        wp_reset_postdata();
-    }
-}
-
-// Sortierung
-$workshop_sorter = function($a, $b) {
-    if (empty($a['datum']) && empty($b['datum'])) return 0;
-    if (empty($a['datum'])) return 1;
-    if (empty($b['datum'])) return -1;
-    return strcmp($a['datum'], $b['datum']);
-};
-
-usort($atelierkurse_products, $workshop_sorter);
-usort($kinderworkshops_products, $workshop_sorter);
-
-// Terminübersicht: Alle kommenden Workshops mit Datum
-$alle_termine_rows = [];
-
-foreach (array_merge($atelierkurse_products, $kinderworkshops_products) as $w) {
-    if (!empty($w['datum']) && $w['datum'] >= $heute) {
-        $product = $w['product'];
-        $preis = $product ? $product->get_price() : '';
-        
-        $alle_termine_rows[] = [
-            'datum' => $w['datum'],
-            'workshop' => $w['post']->ID,
-            'preis' => $preis,
-            'is_kind' => $w['is_kind'],
-        ];
-    }
-}
-
-usort($alle_termine_rows, function($a, $b) {
-    return strcmp($a['datum'], $b['datum']);
-});
-
-$alle_termine_rows = array_slice($alle_termine_rows, 0, 6);
-
-// Helfer-Funktion: Status-Badge
-function micinterart_wc_status_badge($status) {
-    $labels = [
-        'geplant' => 'Geplant',
-        'anmeldung_offen' => 'Anmeldung offen',
-        'fast_ausgebucht' => 'Fast ausgebucht',
-        'ausgebucht' => 'Ausgebucht',
-        'beendet' => 'Beendet',
-        'abgesagt' => 'Abgesagt',
-    ];
-    $classes = [
-        'geplant' => 'status-geplant',
-        'anmeldung_offen' => 'status-anmeldung_offen',
-        'fast_ausgebucht' => 'status-fast_ausgebucht',
-        'ausgebucht' => 'status-ausgebucht',
-        'beendet' => 'status-beendet',
-        'abgesagt' => 'status-abgesagt',
-    ];
-    
-    $label = isset($labels[$status]) ? $labels[$status] : $status;
-    $class = isset($classes[$status]) ? $classes[$status] : 'status-geplant';
-    
-    return '<span class="workshop-status-badge ' . esc_attr($class) . '">' . esc_html($label) . '</span>';
-}
-
-// Helfer-Funktion: Preis formatieren
-function micinterart_wc_format_price($preis, $is_en = false) {
-    if (empty($preis)) return '';
-    
-    $preis_clean = (float)$preis;
-    if ($is_en) {
-        return '€ ' . number_format($preis_clean, 2, '.', ',');
-    }
-    return number_format($preis_clean, 2, ',', '.') . ' €';
-}
-
-// Helfer-Funktion: Preissuffix
-function micinterart_wc_preis_suffix($product_id, $is_en = false) {
-    $preis_info = get_post_meta($product_id, '_workshop_preis_info', true);
-    if (!empty($preis_info)) {
-        return $preis_info;
-    }
-    
-    $is_paar = get_post_meta($product_id, '_workshop_is_paar_preis', true);
-    $is_kinder = false;
-    
-    $terms = get_the_terms($product_id, 'product_cat');
-    if ($terms && !is_wp_error($terms)) {
-        foreach ($terms as $term) {
-            if ($term->slug === 'kinderworkshops') {
-                $is_kinder = true;
-                break;
-            }
-        }
-    }
-    
-    if ($is_paar === 'yes') {
-        return $is_en ? 'per couple' : 'pro Paar';
-    } elseif ($is_kinder) {
-        return $is_en ? 'per child' : 'pro Kind';
-    } else {
-        return $is_en ? 'per person' : 'pro Person';
-    }
-}
-
 ?>
 
 <style>
-/* Workshop-Übersicht Styling */
+/* ============================================================================
+   WORKSHOP ARCHIVE STYLING (von archive-workshop.php)
+   ============================================================================ */
+
 .workshops-container {
     max-width: 1400px;
     margin: 0 auto;
@@ -293,22 +47,6 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     text-align: center;
 }
 
-.workshops-hero-image {
-    aspect-ratio: 14 / 4;
-    margin-bottom: 30px;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-}
-
-.workshops-hero-image img {
-    width: 100%;
-    height: auto;
-    display: block;
-    max-height: 400px;
-    object-fit: cover;
-}
-
 .workshops-intro p {
     font-size: 1.15em;
     line-height: 1.8;
@@ -325,7 +63,18 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
 .workshop-section {
     margin-bottom: 60px;
 }
-.workshop-section.archiv { margin-bottom: 0 !important; }
+
+.workshop-section.archiv {
+    background: #f9f9f9;
+    padding: 20px 20px 25px;
+    border-radius: 12px;
+    margin-top: 30px;
+    margin-bottom: 0;
+}
+
+.workshop-section.archiv .section-header {
+    border-bottom-color: #999;
+}
 
 .section-header {
     text-align: center;
@@ -352,28 +101,11 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
 .workshop-section.kinder .section-header {
     border-bottom-color: #ff6b9d;
 }
-
 .workshop-section.kinder .section-title {
     color: #ff6b9d;
 }
 
-/* Archiv-Sektion */
-.workshop-section.archiv {
-    background: #f9f9f9;
-    padding: 20px 20px 25px;
-    border-radius: 12px;
-    margin-top: 30px;
-    margin-bottom: 0;
-}
-
-.workshop-section.archiv .section-header {
-    border-bottom-color: #999;
-}
-
-.workshop-section.archiv .section-title {
-    color: #666;
-}
-
+/* Archiv Toggle */
 .archiv-toggle {
     text-align: center;
     margin-bottom: 30px;
@@ -417,12 +149,14 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     display: block;
 }
 
+/* Workshop Grid */
 .workshops-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 30px;
 }
 
+/* Workshop Card */
 .workshop-card {
     background: #fff;
     border: 2px solid #e0e0e0;
@@ -437,7 +171,6 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
 }
 
-/* Vergangene Workshops ausgegraut */
 .workshop-card.past {
     opacity: 0.8;
 }
@@ -555,9 +288,7 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     margin: 40px 0;
 }
 
-/* ========================================
-   HERO CARD - Prominenter naechster Workshop
-   ======================================== */
+/* Hero Card */
 .workshop-hero-card {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -570,10 +301,12 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     position: relative;
 }
+
 .workshop-hero-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 16px 50px rgba(0,0,0,0.18);
 }
+
 .hero-badge-next {
     position: absolute;
     top: 20px;
@@ -589,21 +322,25 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     z-index: 3;
     box-shadow: 0 4px 12px rgba(212,165,116,0.4);
 }
+
 .workshop-section.kinder .hero-badge-next {
     background: linear-gradient(135deg, #ff6b9d, #e8547a);
     box-shadow: 0 4px 12px rgba(255,107,157,0.4);
 }
+
 .hero-image-wrapper {
     position: relative;
     overflow: hidden;
     min-height: 400px;
 }
+
 .hero-image-wrapper img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
+
 .hero-image-placeholder {
     width: 100%;
     height: 100%;
@@ -614,6 +351,7 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     background: linear-gradient(135deg, #f5f0eb, #e8ddd3);
     font-size: 80px;
 }
+
 .hero-status-badge {
     position: absolute;
     top: 20px;
@@ -624,12 +362,14 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     font-weight: 600;
     z-index: 2;
 }
+
 .hero-content {
     padding: 45px 40px;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
+
 .hero-title {
     font-family: 'Bebas Neue', 'Arial', sans-serif;
     font-size: 2.4em;
@@ -637,721 +377,608 @@ function micinterart_wc_preis_suffix($product_id, $is_en = false) {
     letter-spacing: 1.5px;
     line-height: 1.15;
 }
+
 .hero-title a {
     color: #2c2c2c;
     text-decoration: none;
     transition: color 0.2s ease;
 }
-.hero-title a:hover { color: #d4a574; }
-.workshop-section.kinder .hero-title a:hover { color: #ff6b9d; }
+
+.hero-title a:hover {
+    color: #666;
+}
+
 .hero-meta {
     display: flex;
     flex-direction: column;
     gap: 12px;
     margin-bottom: 25px;
-    font-size: 1.05em;
 }
+
 .hero-meta-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    color: #555;
+    gap: 8px;
+    color: #666;
+    font-size: 0.95em;
 }
+
 .hero-meta-item strong {
     color: #2c2c2c;
-    min-width: 90px;
+    min-width: 100px;
 }
-.hero-excerpt {
-    color: #555;
-    line-height: 1.8;
-    margin-bottom: 30px;
-    font-size: 1.05em;
-}
-.hero-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 25px;
-    border-top: 2px solid #f0ebe5;
-}
+
 .hero-preis {
-    font-size: 1.6em;
-    font-weight: 700;
+    font-size: 1.5em;
+    font-weight: 600;
     color: #2c2c2c;
+    margin-bottom: 20px;
 }
-.hero-preis .preis-suffix {
-    display: block;
-    font-size: 0.5em;
-    font-weight: 400;
-    color: #888;
-    margin-top: 3px;
-}
+
 .hero-button {
-    padding: 14px 32px;
-    background: linear-gradient(135deg, #2c2c2c, #444);
+    padding: 12px 24px;
+    background: #2c2c2c;
     color: #fff;
     text-decoration: none;
     border-radius: 8px;
-    font-weight: 600;
-    font-size: 1.05em;
-    transition: all 0.3s ease;
+    font-weight: 500;
     display: inline-block;
+    transition: all 0.2s ease;
 }
+
 .hero-button:hover {
-    background: linear-gradient(135deg, #000, #2c2c2c);
+    background: #000;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-    color: #fff;
 }
 
-/* Weitere Workshops Toggle */
-.weitere-toggle {
-    text-align: center;
-    margin-bottom: 30px;
-}
-.weitere-toggle-button {
-    padding: 10px 22px;
-    background: transparent;
-    color: #2c2c2c;
-    border: 1.5px solid #2c2c2c;
-    border-radius: 8px;
-    font-size: 0.95em;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-}
-.weitere-toggle-button:hover {
-    background: #2c2c2c;
-    color: #fff;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-}
-.workshop-section.kinder .weitere-toggle-button {
-    background: transparent;
-    color: #ff6b9d;
-    border-color: #ff6b9d;
-}
-.workshop-section.kinder .weitere-toggle-button:hover {
-    background: #ff6b9d;
-    color: #fff;
-}
-.weitere-toggle-button .arrow {
-    transition: transform 0.3s ease;
-    font-size: 0.85em;
-}
-.weitere-toggle-button.active .arrow {
-    transform: rotate(180deg);
-}
-.weitere-content {
-    display: none;
-    margin-top: 30px;
-}
-.weitere-content.show {
-    display: block;
-    animation: fadeInDown 0.4s ease;
-}
-@keyframes fadeInDown {
-    from { opacity: 0; transform: translateY(-15px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ========================================
-   TERMINUEBERSICHT (Quick Overview)
-   ======================================== */
-.termin-uebersicht {
-    margin: 0 auto 60px;
-    max-width: 1100px;
-    background: #fff;
-    border: 1px solid #e8e2d8;
-    border-radius: 12px;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.06);
-    overflow: hidden;
-}
-.termin-uebersicht-header {
-    background: linear-gradient(135deg, #f5f0eb, #ece2d3);
-    padding: 18px 25px;
-    border-bottom: 1px solid #e8e2d8;
-}
-.termin-uebersicht-header h2 {
-    margin: 0;
-    font-family: 'Bebas Neue', 'Arial', sans-serif;
-    font-size: 1.6em;
-    letter-spacing: 1.5px;
-    color: #2c2c2c;
-}
-.termin-uebersicht-header p {
-    margin: 4px 0 0 0;
-    font-size: 0.9em;
-    color: #777;
-    font-style: italic;
-}
-.termin-uebersicht-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.98em;
-}
-.termin-uebersicht-table th {
-    text-align: left;
-    padding: 12px 18px;
-    background: #faf7f2;
-    font-weight: 600;
-    color: #555;
-    font-size: 0.85em;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid #e8e2d8;
-}
-.termin-uebersicht-table td {
-    padding: 14px 18px;
-    border-bottom: 1px solid #f0ebe2;
-    color: #333;
-    vertical-align: middle;
-}
-.termin-uebersicht-table tr:last-child td { border-bottom: none; }
-.termin-uebersicht-table tr:hover td { background: #fbf9f5; }
-.termin-uebersicht-table .tu-datum { font-weight: 600; white-space: nowrap; color: #2c2c2c; }
-.termin-uebersicht-table .tu-titel a { color: #2c2c2c; text-decoration: none; font-weight: 500; }
-.termin-uebersicht-table .tu-titel a:hover { color: #d4a574; text-decoration: underline; }
-.termin-uebersicht-table .tu-tag {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.78em;
-    font-weight: 600;
-    white-space: nowrap;
-}
-.termin-uebersicht-table .tu-tag-erw { background: #f5ede0; color: #8a6a3d; }
-.termin-uebersicht-table .tu-tag-kind { background: #ffe6ef; color: #c2185b; }
-.termin-uebersicht-table .tu-preis { font-weight: 600; color: #2c2c2c; white-space: nowrap; }
-.termin-uebersicht-table .tu-cta {
-    display: inline-block;
-    padding: 6px 14px;
-    background: #2c2c2c;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 6px;
-    font-size: 0.85em;
-    font-weight: 500;
-    transition: background 0.2s;
-    white-space: nowrap;
-}
-.termin-uebersicht-table .tu-cta:hover { background: #000; color: #fff; }
-
-@media (max-width: 768px) {
-    .workshop-hero-card { grid-template-columns: 1fr; }
-    .hero-image-wrapper { min-height: 280px; max-height: 350px; }
-    .hero-content { padding: 30px 25px; }
-    .hero-title { font-size: 1.8em; }
-    .workshops-grid { grid-template-columns: 1fr; }
-    .workshops-hero-image img { max-height: 250px; }
-    .hero-footer {
-        flex-direction: column;
-        gap: 15px;
-        align-items: stretch;
-        text-align: center;
+@media (max-width: 968px) {
+    .workshop-hero-card {
+        grid-template-columns: 1fr;
     }
-    .hero-button { text-align: center; }
-    
-    .termin-uebersicht-table thead { display: none; }
-    .termin-uebersicht-table, .termin-uebersicht-table tbody, .termin-uebersicht-table tr, .termin-uebersicht-table td { display: block; width: 100%; }
-    .termin-uebersicht-table tr { padding: 14px 18px; border-bottom: 1px solid #f0ebe2; }
-    .termin-uebersicht-table td { padding: 4px 0; border: none; }
-    .termin-uebersicht-table td:last-child { border-bottom: 0; }
-    .termin-uebersicht-table td[data-label]::before {
-        content: attr(data-label) ": ";
-        display: inline-block;
-        font-weight: 700;
-        color: #444;
-        margin-right: 6px;
+    .hero-image-wrapper {
+        min-height: 250px;
     }
-    .termin-uebersicht-table .tu-cta { margin-top: 8px; }
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-    .workshop-section { margin-bottom: 40px; }
 }
 
 @media (max-width: 768px) {
-    .workshops-container { padding: 35px 16px; }
-    .workshops-page-title { font-size: 2.2em; margin-bottom: 24px; }
-    .workshops-intro { margin: 0 auto 30px; }
-    .workshops-intro p { font-size: 1.05em; }
-    .section-header { margin-bottom: 26px; padding-bottom: 14px; }
-    .section-title { font-size: 2.0em; }
-    .workshops-grid { grid-template-columns: 1fr; gap: 18px; }
-    .toggle-button, .archiv-toggle-button { width: 100%; justify-content: center; }
-}
-
-@media (max-width: 420px) {
-    .workshops-page-title { font-size: 2.0em; }
-    .section-title { font-size: 1.85em; }
+    .workshops-grid {
+        grid-template-columns: 1fr;
+    }
+    .workshops-container {
+        padding: 40px 15px;
+    }
+    .workshops-page-title {
+        font-size: 2.2em;
+    }
 }
 </style>
 
-<main id="primary" class="site-main">
-    <div class="workshops-container">
+<?php
+// ============================================================================
+// WORKSHOP DATA LOADING
+// ============================================================================
 
-        <h1 class="workshops-page-title"><?php echo $is_en ? 'Workshops for Everyone' : 'Workshops für jeden'; ?></h1>
+$heute = date('Y-m-d');
 
-        <div class="workshops-intro">
-            <div class="workshops-hero-image">
-                <img src="https://micinterart.de/wp-content/uploads/2026/06/5341273144251062761_121.jpg" alt="micinterart Atelier" loading="eager" decoding="async" fetchpriority="high" width="1400" height="400">
-            </div>
-            <h2><?php echo $is_en ? 'I invite you to my studio.' : 'Ich lade dich ein in mein Atelier.'; ?></h2>
-            <p><?php 
-                if ($is_en) {
-                    echo 'This is the place where you can switch off your mind and just create. Whether you are treating yourself to a timeout, laughing with friends, spending a special evening as a couple, or giving your children an unforgettable day – I will guide you and ensure you feel comfortable from the very first moment. The materials, the cocktails, the wine, the snacks – I will take care of everything. You only need to bring yourself.';
-                } else {
-                    echo 'Hier ist der Ort, an dem du den Kopf ausschalten und einfach mal machen darfst. Ob du dir eine Auszeit gönnst, mit Freundinnen lachst, als Paar einen besonderen Abend verbringst oder deinen Kindern einen unvergesslichen Tag schenkst – ich begleite euch und sorge dafür, dass ihr euch vom ersten Moment an wohlfühlt. Die Materialien, die Cocktails, der Wein, die Snacks – darum kümmere ich mich. Ihr bringt nur euch mit.';
-                }
-            ?></p>
-            <p><strong><?php echo $is_en ? 'Come on by, I look forward to seeing you!' : 'Komm vorbei, ich freue mich auf dich!'; ?></strong></p>
-        </div>
+// Workshop-Kategorie Term holen
+$workshops_term = get_term_by('slug', 'workshops', 'product_cat');
+$atelierkurse_term = get_term_by('slug', 'atelierkurse', 'product_cat');
+$kinderworkshops_term = get_term_by('slug', 'kinderworkshops', 'product_cat');
 
-        <?php if (!empty($alle_termine_rows)) : ?>
+// Sammle alle Workshops nach Kategorie
+$kinder_upcoming = [];
+$erwachsenen_upcoming = [];
+$archiv_workshops = [];
 
-        <div class="termin-uebersicht">
-            <div class="termin-uebersicht-header">
-                <h2>📅 <?php echo $is_en ? 'All Dates at a Glance' : 'Alle Termine auf einen Blick'; ?></h2>
-                <p><?php echo $is_en ? 'Quick overview of all current workshops' : 'Schneller Überblick über alle aktuellen Workshops'; ?></p>
-            </div>
-            <table class="termin-uebersicht-table">
-                <thead>
-                    <tr>
-                        <th><?php echo $is_en ? 'Date' : 'Datum'; ?></th>
-                        <th><?php echo $is_en ? 'Title' : 'Titel'; ?></th>
-                        <th><?php echo $is_en ? 'For Whom' : 'Für wen'; ?></th>
-                        <th><?php echo $is_en ? 'Price' : 'Preis'; ?></th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php foreach ($alle_termine_rows as $row):
-                    $product_id = (int) $row['workshop'];
-                    $product = wc_get_product($product_id);
-                    $datum_formatted = date_i18n('D, d. F Y', strtotime($row['datum']));
-                    $preis = micinterart_wc_format_price($row['preis'], $is_en);
-                    $suffix = micinterart_wc_preis_suffix($product_id, $is_en);
-                    $link = get_permalink($product_id);
-                    $tag = $row['is_kind'] ? 'Kinder' : 'Erwachsene';
-                    $tag_en = $row['is_kind'] ? 'Kids' : 'Adults';
-                    $tag_class = $row['is_kind'] ? 'tu-tag-kind' : 'tu-tag-erw';
-                    
-                    // Stock Status
-                    $stock = $product ? $product->get_stock_quantity() : 0;
-                    $stock_status = '';
-                    if ($stock <= 0) {
-                        $stock_status = '<span class="tu-status ausgebucht">' . ($is_en ? 'Fully booked' : 'Ausgebucht') . '</span>';
-                    } elseif ($stock <= 3) {
-                        $stock_status = '<span class="tu-status fast-ausgebucht">' . ($is_en ? 'Hurry, only ' . $stock . ' left!' : 'Nur noch ' . $stock . ' Plätze!') . '</span>';
-                    }
-                ?>
-                    <tr>
-                        <td class="tu-datum" data-label="<?php echo $is_en ? 'Date' : 'Datum'; ?>"><?php echo esc_html($datum_formatted); ?></td>
-                        <td class="tu-titel" data-label="<?php echo $is_en ? 'Title' : 'Titel'; ?>"><a href="<?php echo esc_url($link); ?>"><?php echo get_the_title($product_id); ?></a></td>
-                        <td class="tu-tag" data-label="<?php echo $is_en ? 'For Whom' : 'Für wen'; ?>"><span class="<?php echo esc_attr($tag_class); ?>"><?php echo $is_en ? $tag_en : $tag; ?></span></td>
-                        <td class="tu-preis" data-label="<?php echo $is_en ? 'Price' : 'Preis'; ?>"><?php echo $preis; ?> <?php echo $preis && $suffix ? '<small>' . esc_html($suffix) . '</small>' : ''; ?></td>
-                        <td class="tu-cta" data-label="<?php echo $is_en ? 'Action' : 'Aktion'; ?>"><a href="<?php echo esc_url($link); ?>"><?php echo $is_en ? 'Book now' : 'Jetzt buchen'; ?></a></td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-        <?php endif; ?>
-
-        <?php
-        // ========================================
-        // ERWACHSENENWORKSHOPS
-        // ========================================
-        if (!empty($atelierkurse_products)):
-            $first_erwachsene = reset($atelierkurse_products);
-            $more_erwachsene = count($atelierkurse_products) > 1;
-        ?>
-        
-        <div class="workshop-section erwachsenen">
-            <div class="section-header">
-                <h2 class="section-title">🎨 <?php echo $is_en ? 'Studio Courses' : 'Atelierkurse'; ?></h2>
-                <p class="section-subtitle"><?php echo $is_en ? 'Creative workshops for adults' : 'Kreative Workshops für Erwachsene'; ?></p>
-            </div>
-
-            <?php if (!empty($first_erwachsene)):
-                $first_product = $first_erwachsene['product'];
-                $first_post = $first_erwachsene['post'];
-                $first_datum = $first_erwachsene['datum'];
-                $first_preis = $first_product ? $first_product->get_price() : '';
-                $first_ort = get_post_meta($first_post->ID, '_workshop_ort', true);
-                $first_uhrzeit_von = get_post_meta($first_post->ID, '_workshop_uhrzeit_von', true);
-                $first_uhrzeit_bis = get_post_meta($first_post->ID, '_workshop_uhrzeit_bis', true);
-                $first_stock = $first_erwachsene['stock'];
-                
-                $has_image = has_post_thumbnail($first_post->ID);
-                $image_url = $has_image ? get_the_post_thumbnail_url($first_post->ID, 'large') : 'https://micinterart.de/wp-content/uploads/2026/06/5341273144251062761_121.jpg';
-                $datum_obj = $first_datum ? date_create($first_datum) : null;
-                $datum_formatted = $datum_obj ? date_i18n('l, d. F Y', $datum_obj->getTimestamp()) : '';
-                $preis_formatted = micinterart_wc_format_price($first_preis, $is_en);
-                $suffix = micinterart_wc_preis_suffix($first_post->ID, $is_en);
-                $stock_status = '';
-                if ($first_stock <= 0) {
-                    $stock_status = micinterart_wc_status_badge('ausgebucht');
-                } elseif ($first_stock <= 3) {
-                    $stock_status = '<span style="color:#f57c00;font-weight:600;">' . ($is_en ? 'Hurry, only ' . $first_stock . ' left!' : 'Nur noch ' . $first_stock . ' Plätze!') . '</span>';
-                }
-            ?>
-            
-            <div class="workshop-hero-card">
-                <div class="hero-image-wrapper">
-                    <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($first_post->post_title); ?>" loading="lazy">
-                    <?php echo micinterart_wc_status_badge($first_erwachsene['status']); ?>
-                </div>
-                <div class="hero-content">
-                    <div class="hero-badge-next">Nächster Termin</div>
-                    <h3 class="hero-title"><a href="<?php echo esc_url(get_permalink($first_post->ID)); ?>"><?php echo esc_html($first_post->post_title); ?></a></h3>
-                    <div class="hero-meta">
-                        <div class="hero-meta-item">
-                            <strong>📅 Datum:</strong>
-                            <span><?php echo esc_html($datum_formatted); ?></span>
-                        </div>
-                        <?php if ($first_uhrzeit_von || $first_uhrzeit_bis): ?>
-                        <div class="hero-meta-item">
-                            <strong>⏰ Uhrzeit:</strong>
-                            <span><?php echo esc_html($first_uhrzeit_von); ?> <?php echo $first_uhrzeit_von && $first_uhrzeit_bis ? '–' : ''; ?> <?php echo esc_html($first_uhrzeit_bis); ?> Uhr</span>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ($first_ort): ?>
-                        <div class="hero-meta-item">
-                            <strong>📍 Ort:</strong>
-                            <span><?php echo esc_html($first_ort); ?></span>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    <div class="hero-excerpt"><?php echo wp_trim_words($first_post->post_excerpt ?: $first_post->post_content, 20); ?></div>
-                    <div class="hero-footer">
-                        <div class="hero-preis">
-                            <?php echo $preis_formatted; ?>
-                            <?php if ($preis_formatted && $suffix): ?>
-                                <span class="preis-suffix"><?php echo esc_html($suffix); ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <a href="<?php echo esc_url(get_permalink($first_post->ID)); ?>" class="hero-button">📅 <?php echo $is_en ? 'Book now' : 'Jetzt buchen'; ?></a>
-                    </div>
-                </div>
-            </div>
-            
-            <?php if ($more_erwachsene): ?>
-            <div class="weitere-toggle">
-                <button type="button" class="weitere-toggle-button" onclick="toggleWeitere('erwachsenen')">
-                    <span><?php echo $is_en ? 'Show all studio courses' : 'Weitere Atelierkurse anzeigen'; ?></span>
-                    <span class="arrow">▼</span>
-                </button>
-            </div>
-            <div class="weitere-content" id="weitere-erwachsenen">
-                <div class="workshops-grid">
-                    <?php foreach (array_slice($atelierkurse_products, 1) as $w):
-                        $product = $w['product'];
-                        $post = $w['post'];
-                        $datum = $w['datum'];
-                        $preis = $product ? $product->get_price() : '';
-                        $preis_formatted = micinterart_wc_format_price($preis, $is_en);
-                        $suffix = micinterart_wc_preis_suffix($post->ID, $is_en);
-                        $ort = get_post_meta($post->ID, '_workshop_ort', true);
-                        $uhrzeit_von = get_post_meta($post->ID, '_workshop_uhrzeit_von', true);
-                        $uhrzeit_bis = get_post_meta($post->ID, '_workshop_uhrzeit_bis', true);
-                        $stock = $w['stock'];
-                        
-                        $datum_obj = $datum ? date_create($datum) : null;
-                        $datum_formatted = $datum_obj ? date_i18n('d.m.Y', $datum_obj->getTimestamp()) : '';
-                        $has_image = has_post_thumbnail($post->ID);
-                        $image_url = $has_image ? get_the_post_thumbnail_url($post->ID, 'large') : 'https://micinterart.de/wp-content/uploads/2026/06/5341273144251062761_121.jpg';
-                        
-                        $stock_status = '';
-                        if ($stock <= 0) {
-                            $stock_status = micinterart_wc_status_badge('ausgebucht');
-                        } elseif ($stock <= 3) {
-                            $stock_status = '<span style="background:#fff3e0;color:#f57c00;padding:3px 10px;border-radius:12px;font-size:0.85em;font-weight:700;">' . ($is_en ? 'Hurry, only ' . $stock . ' left!' : 'Nur noch ' . $stock . ' Plätze!') . '</span>';
-                        }
-                    ?>
-                    <div class="workshop-card <?php echo $w['is_past'] ? 'past' : ''; ?>">
-                        <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($post->post_title); ?>" class="workshop-thumbnail" loading="lazy">
-                        <div class="workshop-content">
-                            <h3 class="workshop-title"><a href="<?php echo esc_url(get_permalink($post->ID)); ?>"><?php echo esc_html($post->post_title); ?></a></h3>
-                            <div class="workshop-meta">
-                                <?php if ($datum_formatted): ?>
-                                <div class="workshop-meta-item">
-                                    <strong>📅 Datum:</strong>
-                                    <span><?php echo esc_html($datum_formatted); ?></span>
-                                </div>
-                                <?php endif; ?>
-                                <?php if ($uhrzeit_von || $uhrzeit_bis): ?>
-                                <div class="workshop-meta-item">
-                                    <strong>⏰ Uhrzeit:</strong>
-                                    <span><?php echo esc_html($uhrzeit_von); ?> <?php echo $uhrzeit_von && $uhrzeit_bis ? '–' : ''; ?> <?php echo esc_html($uhrzeit_bis); ?> Uhr</span>
-                                </div>
-                                <?php endif; ?>
-                                <?php if ($ort): ?>
-                                <div class="workshop-meta-item">
-                                    <strong>📍 Ort:</strong>
-                                    <span><?php echo esc_html($ort); ?></span>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="workshop-excerpt"><?php echo wp_trim_words($post->post_excerpt ?: $post->post_content, 10); ?></div>
-                            <div class="workshop-footer">
-                                <span class="workshop-preis">
-                                    <?php echo $preis_formatted; ?>
-                                    <?php if ($preis_formatted && $suffix): ?>
-                                        <small><?php echo esc_html($suffix); ?></small>
-                                    <?php endif; ?>
-                                </span>
-                                <a href="<?php echo esc_url(get_permalink($post->ID)); ?>" class="workshop-button"><?php echo $is_en ? 'Details' : 'Mehr erfahren'; ?></a>
-                            </div>
-                            <?php echo $stock_status; ?>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-        </div>
-        <?php endif; ?>
-
-        <?php
-        // ========================================
-        // KINDERWORKSHOPS
-        // ========================================
-        if (!empty($kinderworkshops_products)):
-            $first_kinder = reset($kinderworkshops_products);
-            $more_kinder = count($kinderworkshops_products) > 1;
-        ?>
-        
-        <div class="workshop-section kinder">
-            <div class="section-header">
-                <h2 class="section-title">🎨 <?php echo $is_en ? 'Children\'s Workshops' : 'Kinderworkshops'; ?></h2>
-                <p class="section-subtitle"><?php echo $is_en ? 'Fun and creativity for kids' : 'Spaß und Kreativität für Kinder'; ?></p>
-            </div>
-
-            <?php if (!empty($first_kinder)):
-                $first_product = $first_kinder['product'];
-                $first_post = $first_kinder['post'];
-                $first_datum = $first_kinder['datum'];
-                $first_preis = $first_product ? $first_product->get_price() : '';
-                $first_ort = get_post_meta($first_post->ID, '_workshop_ort', true);
-                $first_uhrzeit_von = get_post_meta($first_post->ID, '_workshop_uhrzeit_von', true);
-                $first_uhrzeit_bis = get_post_meta($first_post->ID, '_workshop_uhrzeit_bis', true);
-                $first_stock = $first_kinder['stock'];
-                
-                $has_image = has_post_thumbnail($first_post->ID);
-                $image_url = $has_image ? get_the_post_thumbnail_url($first_post->ID, 'large') : 'https://micinterart.de/wp-content/uploads/2026/06/5341273144251062761_121.jpg';
-                $datum_obj = $first_datum ? date_create($first_datum) : null;
-                $datum_formatted = $datum_obj ? date_i18n('l, d. F Y', $datum_obj->getTimestamp()) : '';
-                $preis_formatted = micinterart_wc_format_price($first_preis, $is_en);
-                $suffix = micinterart_wc_preis_suffix($first_post->ID, $is_en);
-                $stock_status = '';
-                if ($first_stock <= 0) {
-                    $stock_status = micinterart_wc_status_badge('ausgebucht');
-                } elseif ($first_stock <= 3) {
-                    $stock_status = '<span style="color:#f57c00;font-weight:600;">' . ($is_en ? 'Hurry, only ' . $first_stock . ' left!' : 'Nur noch ' . $first_stock . ' Plätze!') . '</span>';
-                }
-            ?>
-            
-            <div class="workshop-hero-card">
-                <div class="hero-image-wrapper">
-                    <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($first_post->post_title); ?>" loading="lazy">
-                    <?php echo micinterart_wc_status_badge($first_kinder['status']); ?>
-                </div>
-                <div class="hero-content">
-                    <div class="hero-badge-next">Nächster Termin</div>
-                    <h3 class="hero-title"><a href="<?php echo esc_url(get_permalink($first_post->ID)); ?>"><?php echo esc_html($first_post->post_title); ?></a></h3>
-                    <div class="hero-meta">
-                        <div class="hero-meta-item">
-                            <strong>📅 Datum:</strong>
-                            <span><?php echo esc_html($datum_formatted); ?></span>
-                        </div>
-                        <?php if ($first_uhrzeit_von || $first_uhrzeit_bis): ?>
-                        <div class="hero-meta-item">
-                            <strong>⏰ Uhrzeit:</strong>
-                            <span><?php echo esc_html($first_uhrzeit_von); ?> <?php echo $first_uhrzeit_von && $first_uhrzeit_bis ? '–' : ''; ?> <?php echo esc_html($first_uhrzeit_bis); ?> Uhr</span>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ($first_ort): ?>
-                        <div class="hero-meta-item">
-                            <strong>📍 Ort:</strong>
-                            <span><?php echo esc_html($first_ort); ?></span>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    <div class="hero-excerpt"><?php echo wp_trim_words($first_post->post_excerpt ?: $first_post->post_content, 20); ?></div>
-                    <div class="hero-footer">
-                        <div class="hero-preis">
-                            <?php echo $preis_formatted; ?>
-                            <?php if ($preis_formatted && $suffix): ?>
-                                <span class="preis-suffix"><?php echo esc_html($suffix); ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <a href="<?php echo esc_url(get_permalink($first_post->ID)); ?>" class="hero-button">📅 <?php echo $is_en ? 'Book now' : 'Jetzt buchen'; ?></a>
-                    </div>
-                </div>
-            </div>
-            
-            <?php if ($more_kinder): ?>
-            <div class="weitere-toggle">
-                <button type="button" class="weitere-toggle-button" onclick="toggleWeitere('kinder')">
-                    <span><?php echo $is_en ? 'Show all children\'s workshops' : 'Weitere Kinderworkshops anzeigen'; ?></span>
-                    <span class="arrow">▼</span>
-                </button>
-            </div>
-            <div class="weitere-content" id="weitere-kinder">
-                <div class="workshops-grid">
-                    <?php foreach (array_slice($kinderworkshops_products, 1) as $w):
-                        $product = $w['product'];
-                        $post = $w['post'];
-                        $datum = $w['datum'];
-                        $preis = $product ? $product->get_price() : '';
-                        $preis_formatted = micinterart_wc_format_price($preis, $is_en);
-                        $suffix = micinterart_wc_preis_suffix($post->ID, $is_en);
-                        $ort = get_post_meta($post->ID, '_workshop_ort', true);
-                        $uhrzeit_von = get_post_meta($post->ID, '_workshop_uhrzeit_von', true);
-                        $uhrzeit_bis = get_post_meta($post->ID, '_workshop_uhrzeit_bis', true);
-                        $stock = $w['stock'];
-                        
-                        $datum_obj = $datum ? date_create($datum) : null;
-                        $datum_formatted = $datum_obj ? date_i18n('d.m.Y', $datum_obj->getTimestamp()) : '';
-                        $has_image = has_post_thumbnail($post->ID);
-                        $image_url = $has_image ? get_the_post_thumbnail_url($post->ID, 'large') : 'https://micinterart.de/wp-content/uploads/2026/06/5341273144251062761_121.jpg';
-                        
-                        $stock_status = '';
-                        if ($stock <= 0) {
-                            $stock_status = micinterart_wc_status_badge('ausgebucht');
-                        } elseif ($stock <= 3) {
-                            $stock_status = '<span style="background:#fff3e0;color:#f57c00;padding:3px 10px;border-radius:12px;font-size:0.85em;font-weight:700;">' . ($is_en ? 'Hurry, only ' . $stock . ' left!' : 'Nur noch ' . $stock . ' Plätze!') . '</span>';
-                        }
-                    ?>
-                    <div class="workshop-card <?php echo $w['is_past'] ? 'past' : ''; ?>">
-                        <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($post->post_title); ?>" class="workshop-thumbnail" loading="lazy">
-                        <div class="workshop-content">
-                            <h3 class="workshop-title"><a href="<?php echo esc_url(get_permalink($post->ID)); ?>"><?php echo esc_html($post->post_title); ?></a></h3>
-                            <div class="workshop-meta">
-                                <?php if ($datum_formatted): ?>
-                                <div class="workshop-meta-item">
-                                    <strong>📅 Datum:</strong>
-                                    <span><?php echo esc_html($datum_formatted); ?></span>
-                                </div>
-                                <?php endif; ?>
-                                <?php if ($uhrzeit_von || $uhrzeit_bis): ?>
-                                <div class="workshop-meta-item">
-                                    <strong>⏰ Uhrzeit:</strong>
-                                    <span><?php echo esc_html($uhrzeit_von); ?> <?php echo $uhrzeit_von && $uhrzeit_bis ? '–' : ''; ?> <?php echo esc_html($uhrzeit_bis); ?> Uhr</span>
-                                </div>
-                                <?php endif; ?>
-                                <?php if ($ort): ?>
-                                <div class="workshop-meta-item">
-                                    <strong>📍 Ort:</strong>
-                                    <span><?php echo esc_html($ort); ?></span>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="workshop-excerpt"><?php echo wp_trim_words($post->post_excerpt ?: $post->post_content, 10); ?></div>
-                            <div class="workshop-footer">
-                                <span class="workshop-preis">
-                                    <?php echo $preis_formatted; ?>
-                                    <?php if ($preis_formatted && $suffix): ?>
-                                        <small><?php echo esc_html($suffix); ?></small>
-                                    <?php endif; ?>
-                                </span>
-                                <a href="<?php echo esc_url(get_permalink($post->ID)); ?>" class="workshop-button"><?php echo $is_en ? 'Details' : 'Mehr erfahren'; ?></a>
-                            </div>
-                            <?php echo $stock_status; ?>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-        </div>
-        <?php endif; ?>
-
-        <?php
-        // ========================================
-        // ARCHIV (vergangene Workshops)
-        // ========================================
-        if (!empty($archiv_products)):
-        ?>
-        <div class="workshop-section archiv">
-            <div class="section-header">
-                <h2 class="section-title">📜 <?php echo $is_en ? 'Past Workshops' : 'Archiv'; ?></h2>
-            </div>
-            
-            <div class="archiv-toggle">
-                <button type="button" class="archiv-toggle-button" onclick="toggleArchiv()">
-                    <span><?php echo $is_en ? 'Show past workshops' : 'Vergangene Workshops anzeigen'; ?></span>
-                    <span class="arrow">▼</span>
-                </button>
-            </div>
-            
-            <div class="archiv-content">
-                <div class="workshops-grid">
-                    <?php foreach ($archiv_products as $a):
-                        $post = $a['post'];
-                        $datum = $a['datum'];
-                        $product = wc_get_product($post->ID);
-                        $preis = $product ? $product->get_price() : '';
-                        $preis_formatted = micinterart_wc_format_price($preis, $is_en);
-                        $suffix = micinterart_wc_preis_suffix($post->ID, $is_en);
-                        
-                        $datum_obj = $datum ? date_create($datum) : null;
-                        $datum_formatted = $datum_obj ? date_i18n('d.m.Y', $datum_obj->getTimestamp()) : '';
-                        $has_image = has_post_thumbnail($post->ID);
-                        $image_url = $has_image ? get_the_post_thumbnail_url($post->ID, 'large') : 'https://micinterart.de/wp-content/uploads/2026/06/5341273144251062761_121.jpg';
-                    ?>
-                    <div class="workshop-card past">
-                        <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($post->post_title); ?>" class="workshop-thumbnail" loading="lazy">
-                        <div class="workshop-content">
-                            <h3 class="workshop-title"><a href="<?php echo esc_url(get_permalink($post->ID)); ?>"><?php echo esc_html($post->post_title); ?></a></h3>
-                            <div class="workshop-meta">
-                                <?php if ($datum_formatted): ?>
-                                <div class="workshop-meta-item">
-                                    <strong>📅 Datum:</strong>
-                                    <span><?php echo esc_html($datum_formatted); ?></span>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="workshop-excerpt"><?php echo wp_trim_words($post->post_excerpt ?: $post->post_content, 10); ?></div>
-                            <div class="workshop-footer">
-                                <span class="workshop-preis">
-                                    <?php echo $preis_formatted; ?>
-                                    <?php if ($preis_formatted && $suffix): ?>
-                                        <small><?php echo esc_html($suffix); ?></small>
-                                    <?php endif; ?>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-
-    </div>
-</main>
-
-<script>
-function toggleWeitere(section) {
-    var content = document.getElementById('weitere-' + section);
-    var button = content.previousElementSibling.querySelector('button');
+if ($workshops_term) {
+    // Alle Workshops holen (upcoming)
+    $args_upcoming = [
+        'post_type' => 'product',
+        'posts_per_page' => -1,
+        'post_status' => 'publish',
+        'tax_query' => [
+            [
+                'taxonomy' => 'product_cat',
+                'field' => 'term_id',
+                'terms' => $workshops_term->term_id,
+                'include_children' => true,
+            ],
+        ],
+        'meta_query' => [
+            'relation' => 'OR',
+            [ 'key' => '_workshop_datum', 'value' => $heute, 'compare' => '>=', 'type' => 'DATE' ],
+            [ 'key' => '_workshop_datum', 'compare' => 'NOT EXISTS' ],
+            [ 'key' => '_workshop_datum', 'value' => '', 'compare' => '=' ],
+        ],
+        'orderby' => 'meta_value',
+        'meta_key' => '_workshop_datum',
+        'order' => 'ASC'
+    ];
     
-    if (content.classList.contains('show')) {
-        content.classList.remove('show');
-        button.classList.remove('active');
-    } else {
-        content.classList.add('show');
-        button.classList.add('active');
+    $upcoming_query = new WP_Query($args_upcoming);
+    
+    if ($upcoming_query->have_posts()) {
+        while ($upcoming_query->have_posts()) {
+            $upcoming_query->the_post();
+            $product_id = get_the_ID();
+            $product = wc_get_product($product_id);
+            
+            $datum = get_post_meta($product_id, '_workshop_datum', true);
+            
+            // Kategorie bestimmen
+            $is_kinder = false;
+            $categories = get_the_terms($product_id, 'product_cat');
+            if ($categories && !is_wp_error($categories)) {
+                foreach ($categories as $category) {
+                    if ($category->slug === 'kinderworkshops') { 
+                        $is_kinder = true; 
+                        break;
+                    }
+                }
+            }
+            
+            $status = get_post_meta($product_id, '_workshop_status', true) ?: 'geplant';
+            $stock = $product ? $product->get_stock_quantity() : 0;
+            
+            // Wenn ausverkauft, Status anpassen
+            if ($stock <= 0 && $status !== 'beendet' && $status !== 'abgesagt') {
+                $status = 'ausgebucht';
+            }
+            
+            $workshop_data = [
+                'post' => get_post($product_id),
+                'product' => $product,
+                'datum' => $datum,
+                'status' => $status,
+                'stock' => $stock,
+                'is_kind' => $is_kinder,
+            ];
+            
+            if ($is_kinder) {
+                $kinder_upcoming[] = $workshop_data;
+            } else {
+                $erwachsenen_upcoming[] = $workshop_data;
+            }
+        }
+        wp_reset_postdata();
+    }
+    
+    // Archiv-Workshops (vergangene)
+    $args_past = [
+        'post_type' => 'product',
+        'posts_per_page' => -1,
+        'post_status' => 'publish',
+        'tax_query' => [
+            [
+                'taxonomy' => 'product_cat',
+                'field' => 'term_id',
+                'terms' => $workshops_term->term_id,
+                'include_children' => true,
+            ],
+        ],
+        'meta_query' => [
+            [ 'key' => '_workshop_datum', 'value' => $heute, 'compare' => '<', 'type' => 'DATE' ],
+        ],
+        'orderby' => 'meta_value',
+        'meta_key' => '_workshop_datum',
+        'order' => 'DESC'
+    ];
+    
+    $past_query = new WP_Query($args_past);
+    
+    if ($past_query->have_posts()) {
+        while ($past_query->have_posts()) {
+            $past_query->the_post();
+            $product_id = get_the_ID();
+            
+            $datum = get_post_meta($product_id, '_workshop_datum', true);
+            
+            $is_kinder = false;
+            $categories = get_the_terms($product_id, 'product_cat');
+            if ($categories && !is_wp_error($categories)) {
+                foreach ($categories as $category) {
+                    if ($category->slug === 'kinderworkshops') { 
+                        $is_kinder = true; 
+                        break;
+                    }
+                }
+            }
+            
+            $archiv_workshops[] = [
+                'post' => get_post($product_id),
+                'datum' => $datum,
+                'is_kind' => $is_kinder,
+            ];
+        }
+        wp_reset_postdata();
     }
 }
 
+// Sortierung: Workshops mit Datum nach oben, dann "Nach Absprache"
+$workshop_sorter = function($a, $b) {
+    if (empty($a['datum']) && empty($b['datum'])) return 0;
+    if (empty($a['datum'])) return 1;
+    if (empty($b['datum'])) return -1;
+    return strcmp($a['datum'], $b['datum']);
+};
+
+usort($kinder_upcoming, $workshop_sorter);
+usort($erwachsenen_upcoming, $workshop_sorter);
+usort($archiv_workshops, function($a, $b) {
+    if (empty($a['datum']) && empty($b['datum'])) return 0;
+    if (empty($a['datum'])) return 1;
+    if (empty($b['datum'])) return -1;
+    return strcmp($b['datum'], $a['datum']);
+});
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function format_workshop_date($datum) {
+    if (empty($datum)) {
+        return 'Nach Absprache';
+    }
+    $date_obj = date_create($datum);
+    if (!$date_obj) return $datum;
+    return strftime('%A, %d. %B %Y', $date_obj->getTimestamp());
+}
+
+function format_workshop_time($post_id) {
+    $von = get_post_meta($post_id, '_workshop_uhrzeit_von', true);
+    $bis = get_post_meta($post_id, '_workshop_uhrzeit_bis', true);
+    if (empty($von) && empty($bis)) return '';
+    if (!empty($von) && !empty($bis)) return $von . ' – ' . $bis . ' Uhr';
+    return ($von ?: $bis) . ' Uhr';
+}
+
+function get_status_class($status) {
+    $map = [
+        'geplant' => 'status-geplant',
+        'anmeldung_offen' => 'status-anmeldung_offen',
+        'fast_ausgebucht' => 'status-fast_ausgebucht',
+        'ausgebucht' => 'status-ausgebucht',
+        'beendet' => 'status-beendet',
+        'abgesagt' => 'status-abgesagt',
+    ];
+    return $map[$status] ?? 'status-geplant';
+}
+
+function get_status_text($status, $stock = null) {
+    if ($stock !== null && $stock <= 0 && $status !== 'beendet' && $status !== 'abgesagt') {
+        return 'Ausgebucht';
+    }
+    $map = [
+        'geplant' => 'Geplant',
+        'anmeldung_offen' => 'Anmeldung offen',
+        'fast_ausgebucht' => 'Fast ausgebucht',
+        'ausgebucht' => 'Ausgebucht',
+        'beendet' => 'Beendet',
+        'abgesagt' => 'Abgesagt',
+    ];
+    return $map[$status] ?? 'Geplant';
+}
+
+// ============================================================================
+// DISPLAY WORKSHOP CARD
+// ============================================================================
+
+function display_workshop_card($workshop, $is_archiv = false) {
+    $post = $workshop['post'];
+    $product = $workshop['product'] ?? wc_get_product($post->ID);
+    $datum = $workshop['datum'] ?? '';
+    $status = $workshop['status'] ?? 'geplant';
+    $stock = $workshop['stock'] ?? ($product ? $product->get_stock_quantity() : 0);
+    $is_kind = $workshop['is_kind'] ?? false;
+    
+    $status_class = get_status_class($status);
+    $status_text = get_status_text($status, $stock);
+    
+    $thumbnail_url = '';
+    if (has_post_thumbnail($post->ID)) {
+        $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'medium_large');
+    }
+    
+    $preis = $product ? $product->get_price() : 0;
+    $uhrzeit = format_workshop_time($post->ID);
+    $ort = get_post_meta($post->ID, '_workshop_ort', true);
+    $alter = '';
+    $alter_von = get_post_meta($post->ID, '_workshop_alter_von', true);
+    $alter_bis = get_post_meta($post->ID, '_workshop_alter_bis', true);
+    if (!empty($alter_von) || !empty($alter_bis)) {
+        $alter = ($alter_von ? 'ab ' . $alter_von : '') . ($alter_von && $alter_bis ? ' – ' : '') . ($alter_bis ? $alter_bis . ' Jahre' : '');
+    }
+    
+    $card_classes = ['workshop-card'];
+    if ($is_archiv || (!empty($datum) && $datum < date('Y-m-d'))) {
+        $card_classes[] = 'past';
+    }
+    
+    echo '<div class="' . esc_attr(implode(' ', $card_classes)) . '">';
+    
+    // Thumbnail
+    echo '<div class="workshop-thumbnail">';
+    if (!empty($thumbnail_url)) {
+        echo '<img src="' . esc_url($thumbnail_url) . '" alt="' . esc_attr($post->post_title) . '" loading="lazy">';
+    } else {
+        echo '<div style="width:100%; height:100%; background:#f5f5f5; display:flex; align-items:center; justify-content:center; font-size:40px;">' . ($is_kind ? '👧' : '🎨') . '</div>';
+    }
+    echo '</div>';
+    
+    // Status Badge
+    echo '<div class="workshop-status-badge ' . esc_attr($status_class) . '">' . esc_html($status_text) . '</div>';
+    
+    // Content
+    echo '<div class="workshop-content">';
+    echo '<h3 class="workshop-title"><a href="' . get_permalink($post->ID) . '">' . esc_html($post->post_title) . '</a></h3>';
+    
+    // Meta
+    echo '<div class="workshop-meta">';
+    echo '<div class="workshop-meta-item"><strong>Wann:</strong> ' . esc_html(format_workshop_date($datum)) . '</div>';
+    if (!empty($uhrzeit)) {
+        echo '<div class="workshop-meta-item"><strong>Uhrzeit:</strong> ' . esc_html($uhrzeit) . '</div>';
+    }
+    if (!empty($alter)) {
+        echo '<div class="workshop-meta-item"><strong>Alter:</strong> ' . esc_html($alter) . '</div>';
+    }
+    if (!empty($ort)) {
+        echo '<div class="workshop-meta-item"><strong>Wo:</strong> ' . esc_html($ort) . '</div>';
+    }
+    echo '</div>';
+    
+    // Footer mit Preis und Button
+    echo '<div class="workshop-footer">';
+    if ($preis > 0) {
+        echo '<span class="workshop-preis">' . wc_price($preis) . '</span>';
+    }
+    echo '<a href="' . get_permalink($post->ID) . '" class="workshop-button">Mehr Infos</a>';
+    echo '</div>';
+    
+    echo '</div>';
+    echo '</div>';
+}
+
+// ============================================================================
+// RENDER PAGE
+// ============================================================================
+
+// Titel und Einleitung
+echo '<div class="workshops-container">';
+
+if ($is_en) {
+    echo '<h1 class="workshops-page-title">My Workshops</h1>';
+    echo '<div class="workshops-intro">';
+    echo '<p><strong>Discover your creativity!</strong></p>';
+    echo '<p>From painting to sculpture to creative techniques for children - find the perfect workshop for you.</p>';
+    echo '<p><strong>Come on by, I look forward to seeing you!</strong></p>';
+    echo '</div>';
+} else {
+    echo '<h1 class="workshops-page-title">Meine Workshops</h1>';
+    echo '<div class="workshops-intro">';
+    echo '<p><strong>Entdecke deine kreative Seite!</strong></p>';
+    echo '<p>Von Malerei über Skulptur bis hin zu kreativen Techniken für Kinder – hier findest du den perfekten Workshop für dich.</p>';
+    echo '<p><strong>Komm vorbei, ich freue mich auf dich!</strong></p>';
+    echo '</div>';
+}
+
+// ============================================================================
+// HERO SECTION - Nächster Workshop
+// ============================================================================
+
+$next_workshop = null;
+$hero_section = 'erwachsenen';
+
+// Versuche zuerst Kinderworkshop
+if (!empty($kinder_upcoming)) {
+    foreach ($kinder_upcoming as $w) {
+        if (!empty($w['datum']) && $w['datum'] >= $heute) {
+            $next_workshop = $w;
+            $hero_section = 'kinder';
+            break;
+        }
+    }
+}
+
+// Falls kein Kinderworkshop, versuche Erwachsene
+if (!$next_workshop && !empty($erwachsenen_upcoming)) {
+    foreach ($erwachsenen_upcoming as $w) {
+        if (!empty($w['datum']) && $w['datum'] >= $heute) {
+            $next_workshop = $w;
+            $hero_section = 'erwachsenen';
+            break;
+        }
+    }
+}
+
+// Falls kein Workshop mit Datum, nimm den ersten
+if (!$next_workshop) {
+    if (!empty($kinder_upcoming)) {
+        $next_workshop = $kinder_upcoming[0];
+        $hero_section = 'kinder';
+    } elseif (!empty($erwachsenen_upcoming)) {
+        $next_workshop = $erwachsenen_upcoming[0];
+        $hero_section = 'erwachsenen';
+    }
+}
+
+if ($next_workshop) :
+    $post = $next_workshop['post'];
+    $product = $next_workshop['product'];
+    $datum = $next_workshop['datum'];
+    $status = $next_workshop['status'];
+    $stock = $next_workshop['stock'];
+    $is_kind = $next_workshop['is_kind'];
+    
+    $next_status_text = get_status_text($status, $stock);
+    $next_status_class = get_status_class($status);
+    
+    if ($stock <= 0) {
+        $next_status_class = 'status-ausgebucht';
+        $next_status_text = 'Ausgebucht';
+    }
+    
+    $thumbnail_url = '';
+    if (has_post_thumbnail($post->ID)) {
+        $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
+    }
+    
+    $preis = $product ? $product->get_price() : 0;
+    $uhrzeit = format_workshop_time($post->ID);
+    $ort = get_post_meta($post->ID, '_workshop_ort', true);
+    
+    $section_class = $is_kind ? 'kinder' : '';
+    $placeholder_emoji = $is_kind ? '👧' : '🎨';
+    
+    // Sektions-Titel
+    echo '<div class="workshop-section ' . esc_attr($section_class) . '" style="margin-bottom: 0;">';
+    echo '<div class="section-header">';
+    echo '<h2 class="section-title">' . ($is_kind ? ($is_en ? 'Children\'s Workshops' : 'Kinderworkshops') : ($is_en ? 'Art Courses for Adults' : 'Atelierkurse für Erwachsene')) . '</h2>';
+    echo '</div>';
+    
+    // Hero Card
+    echo '<div class="workshop-hero-card">';
+    
+    // Badge
+    echo '<div class="hero-badge-next">' . ($is_en ? 'NEXT DATE' : 'NÄCHSTER TERMIN') . '</div>';
+    
+    // Bild-Seite
+    echo '<div class="hero-image-wrapper">';
+    if (!empty($thumbnail_url)) {
+        echo '<img src="' . esc_url($thumbnail_url) . '" alt="' . esc_attr($post->post_title) . '">';
+    } else {
+        echo '<div class="hero-image-placeholder">' . esc_html($placeholder_emoji) . '</div>';
+    }
+    
+    // Status-Badge
+    echo '<div class="hero-status-badge ' . esc_attr($next_status_class) . '">' . esc_html($next_status_text) . '</div>';
+    echo '</div>';
+    
+    // Inhalt-Seite
+    echo '<div class="hero-content">';
+    echo '<h2 class="hero-title"><a href="' . get_permalink($post->ID) . '">' . esc_html($post->post_title) . '</a></h2>';
+    
+    echo '<div class="hero-meta">';
+    echo '<div class="hero-meta-item"><strong>' . ($is_en ? 'When:' : 'Wann:') . '</strong> ' . esc_html(format_workshop_date($datum)) . '</div>';
+    if (!empty($uhrzeit)) {
+        echo '<div class="hero-meta-item"><strong>' . ($is_en ? 'Time:' : 'Uhrzeit:') . '</strong> ' . esc_html($uhrzeit) . '</div>';
+    }
+    if (!empty($ort)) {
+        echo '<div class="hero-meta-item"><strong>' . ($is_en ? 'Where:' : 'Wo:') . '</strong> ' . esc_html($ort) . '</div>';
+    }
+    echo '</div>';
+    
+    // Preis
+    if ($preis > 0) {
+        echo '<div class="hero-preis">' . wc_price($preis) . '</div>';
+    }
+    
+    // Button
+    echo '<a href="' . get_permalink($post->ID) . '" class="hero-button">' . ($is_en ? 'More info &raquo;' : 'Mehr erfahren &raquo;') . '</a>';
+    
+    echo '</div>';
+    echo '</div>';
+    echo '</div>';
+    
+    // Markiere diesen Workshop als bereits angezeigt
+    $displayed_ids = [$post->ID];
+else :
+    $displayed_ids = [];
+endif;
+
+// ============================================================================
+// KINDERWORKSHOPS SECTION
+// ============================================================================
+
+if (!empty($kinder_upcoming)) :
+    echo '<div class="workshop-section kinder">';
+    echo '<div class="section-header">';
+    echo '<h2 class="section-title">' . ($is_en ? 'Children\'s Workshops' : 'Kinderworkshops') . '</h2>';
+    echo '<p class="section-subtitle">' . ($is_en ? 'Creativity for our youngest artists' : 'Kreativität für unsere jüngsten Künstler') . '</p>';
+    echo '</div>';
+    
+    // Filtere bereits in Hero angezeigten Workshop
+    $kinder_display = array_filter($kinder_upcoming, function($w) use ($displayed_ids) {
+        return !in_array($w['post']->ID, $displayed_ids);
+    });
+    
+    if (!empty($kinder_display)) :
+        echo '<div class="workshops-grid">';
+        foreach ($kinder_display as $workshop) :
+            display_workshop_card($workshop);
+        endforeach;
+        echo '</div>';
+    endif;
+    
+    echo '</div>';
+endif;
+
+// ============================================================================
+// ATELIERKURSE SECTION
+// ============================================================================
+
+if (!empty($erwachsenen_upcoming)) :
+    echo '<div class="workshop-section">';
+    echo '<div class="section-header">';
+    echo '<h2 class="section-title">' . ($is_en ? 'Art Courses for Adults' : 'Atelierkurse für Erwachsene') . '</h2>';
+    echo '<p class="section-subtitle">' . ($is_en ? 'Discover your creative side' : 'Entdecke deine kreative Seite') . '</p>';
+    echo '</div>';
+    
+    // Filtere bereits in Hero angezeigten Workshop
+    $erwachsenen_display = array_filter($erwachsenen_upcoming, function($w) use ($displayed_ids) {
+        return !in_array($w['post']->ID, $displayed_ids);
+    });
+    
+    if (!empty($erwachsenen_display)) :
+        echo '<div class="workshops-grid">';
+        foreach ($erwachsenen_display as $workshop) :
+            display_workshop_card($workshop);
+        endforeach;
+        echo '</div>';
+    endif;
+    
+    echo '</div>';
+endif;
+
+// ============================================================================
+// ARCHIV SECTION (Vergangene Workshops)
+// ============================================================================
+
+if (!empty($archiv_workshops)) :
+    echo '<div class="workshop-section archiv">';
+    echo '<div class="section-header">';
+    echo '<h2 class="section-title">' . ($is_en ? 'Past Workshops' : 'Vergangene Workshops') . '</h2>';
+    echo '<p class="section-subtitle">' . ($is_en ? 'A look back at creative moments' : 'Ein Rückblick auf kreative Momente') . '</p>';
+    echo '</div>';
+    
+    echo '<div class="archiv-toggle">';
+    echo '<button class="archiv-toggle-button" onclick="toggleArchiv()">';
+    echo ($is_en ? 'Show past workshops' : 'Vergangene Workshops anzeigen') . ' <span class="arrow">▼</span>';
+    echo '</button>';
+    echo '</div>';
+    
+    echo '<div class="archiv-content">';
+    echo '<div class="workshops-grid">';
+    foreach ($archiv_workshops as $workshop) :
+        display_workshop_card($workshop, true);
+    endforeach;
+    echo '</div>';
+    echo '</div>';
+    echo '</div>';
+endif;
+
+// No workshops message
+if (empty($kinder_upcoming) && empty($erwachsenen_upcoming) && empty($archiv_workshops)) :
+    echo '<div class="no-workshops">';
+    echo '<p>' . ($is_en ? 'No workshops found.' : 'Keine Workshops gefunden.') . '</p>';
+    echo '</div>';
+endif;
+
+echo '</div>';
+
+// Close container
+?>
+
+<script>
 function toggleArchiv() {
     var content = document.querySelector('.archiv-content');
     var button = document.querySelector('.archiv-toggle-button');
@@ -1359,9 +986,13 @@ function toggleArchiv() {
     if (content.classList.contains('show')) {
         content.classList.remove('show');
         button.classList.remove('active');
+        button.querySelector('.arrow').textContent = '▼';
     } else {
         content.classList.add('show');
         button.classList.add('active');
+        button.querySelector('.arrow').textContent = '▲';
     }
 }
 </script>
+
+<?php get_footer();
