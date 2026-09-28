@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 
 // Check if WooCommerce is active
 if (!class_exists('WooCommerce')) {
-    return;
+    exit;
 }
 
 $product_id = get_the_ID();

@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 if (!class_exists('WooCommerce')) {
     // Fallback: Alte Workshop-Übersicht anzeigen
     include(get_template_directory() . '/archive-workshop.php');
-    return;
+    exit;
 }
 
 get_header();

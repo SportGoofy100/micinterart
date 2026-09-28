@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 if (!class_exists('WooCommerce')) {
     // Fallback: Alte Workshop-Einzelseite anzeigen
     include(get_template_directory() . '/single-workshop.php');
-    return;
+    exit;
 }
 
 // Check if this is a workshop product

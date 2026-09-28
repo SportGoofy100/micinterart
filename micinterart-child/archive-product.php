@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 
 // Check if WooCommerce is active
 if (!class_exists('WooCommerce')) {
-    return;
+    exit;
 }
 
 // Prüfen ob wir in einer Workshop-Kategorie sind

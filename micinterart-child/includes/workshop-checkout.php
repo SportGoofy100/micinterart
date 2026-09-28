@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 
 // Nur laden wenn WooCommerce aktiv ist
 if (!class_exists('WooCommerce')) {
-    return;
+    exit;
 }
 
 class Micinterart_Workshop_Checkout {

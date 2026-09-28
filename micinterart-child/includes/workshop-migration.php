@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 
 // Nur ausführen, wenn WooCommerce aktiv ist
 if (!class_exists('WooCommerce')) {
-    return;
+    exit;
 }
 
 class Micinterart_Workshop_Migration {
