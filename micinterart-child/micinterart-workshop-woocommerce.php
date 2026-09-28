@@ -327,43 +327,67 @@ class Micinterart_Workshop_WooCommerce {
     
     /**
      * Rendert die "Was dich erwartet" Felder
+     * Alle 8 Felder werden angezeigt, Feld 2/6/7 werden automatisch generiert
      */
     private function render_erwartet_fields($product_id) {
+        // Automatisch generierte Werte
+        $max_teilnehmer = get_post_meta($product_id, '_workshop_max_teilnehmer', true);
+        $ort = get_post_meta($product_id, '_workshop_ort', true);
+        $sprache = get_post_meta($product_id, '_workshop_sprache', true);
+        
+        // Default-Felder für alle 8 Slots
         $default_felder = [
             1 => ['emoji' => '🎨', 'titel' => 'Alle Materialien inklusive', 'text' => 'Du brauchst nichts mitzubringen – alles ist vorbereitet'],
+            2 => ['emoji' => '👥', 'titel' => 'Kleine Gruppen', 'text' => $max_teilnehmer ? 'Maximal ' . esc_html($max_teilnehmer) . ' Teilnehmer für individuelle Betreuung' : 'Intensive Betreuung in kleiner Runde'],
             3 => ['emoji' => '🎓', 'titel' => 'Keine Vorkenntnisse nötig', 'text' => 'Ich begleite dich Schritt für Schritt'],
             4 => ['emoji' => '🖼️', 'titel' => 'Dein fertiges Kunstwerk', 'text' => 'Zum Mitnehmen und stolz nach Hause tragen'],
             5 => ['emoji' => '☕', 'titel' => 'Inklusive:', 'text' => 'Kaffee, Tee, Wasser und kleine Leckereien'],
+            6 => ['emoji' => '🅿️', 'titel' => 'Parkplätze', 'text' => $ort ? 'Kostenlose Parkplätze vor Ort in ' . esc_html($ort) : 'Parkmöglichkeiten in der Nähe'],
+            7 => ['emoji' => '💬', 'titel' => 'Kurssprache', 'text' => $sprache ? 'Der Workshop findet auf ' . esc_html(ucfirst($sprache)) . ' statt' : 'Deutsch'],
+            8 => ['emoji' => '🎁', 'titel' => 'Überraschung', 'text' => 'Eine kleine Überraschung wartet auf dich'],
         ];
         
         echo '<h3>' . __('Was dich erwartet', 'micinterart') . '</h3>';
-        echo '<p class="description">' . __('Feld 2 (Kleine Gruppen) und Feld 7 (Kurssprache) sind vollautomatisch. Feld 6 (Parkplätze) passt sich automatisch an.', 'micinterart') . '</p>';
+        echo '<p class="description">' . __('Feld 2, 6 und 7 werden automatisch aus deinen Eingaben generiert. Du kannst sie überschreiben.', 'micinterart') . '</p>';
         
-        foreach ($default_felder as $nr => $feld) {
+        for ($nr = 1; $nr <= 8; $nr++) {
             $emoji = get_post_meta($product_id, "_workshop_erwartet_{$nr}_emoji", true);
             $titel = get_post_meta($product_id, "_workshop_erwartet_{$nr}_titel", true);
             $text = get_post_meta($product_id, "_workshop_erwartet_{$nr}_text", true);
             
-            echo '<div class="options_group">';
-            echo '<p style="margin-bottom: 5px; font-weight: bold;">Feld ' . $nr . '</p>';
-            woocommerce_wp_text_input([
-                'id' => "_workshop_erwartet_{$nr}_emoji",
-                'label' => 'Emoji',
-                'placeholder' => $feld['emoji'],
-                'value' => $emoji,
-            ]);
+            // Falls noch nichts gespeichert ist, Default-Werte verwenden
+            if (empty($emoji)) $emoji = $default_felder[$nr]['emoji'];
+            if (empty($titel)) $titel = $default_felder[$nr]['titel'];
+            if (empty($text)) $text = $default_felder[$nr]['text'];
+            
+            echo '<div class="options_group" style="border: 1px solid #eee; padding: 15px; margin-bottom: 15px; border-radius: 4px;">';
+            echo '<h4 style="margin-top: 0;">Feld ' . $nr . '</h4>';
+            
+            // Emoji-Feld
+            echo '<p class="form-field">';
+            echo '<label for="_workshop_erwartet_' . $nr . '_emoji">Emoji</label>';
+            echo '<input type="text" class="short" name="_workshop_erwartet_' . $nr . '_emoji" id="_workshop_erwartet_' . $nr . '_emoji" value="' . esc_attr($emoji) . '" placeholder="' . esc_attr($default_felder[$nr]['emoji']) . '" />';
+            echo '</p>';
+            
+            // Titel-Feld
             woocommerce_wp_text_input([
                 'id' => "_workshop_erwartet_{$nr}_titel",
                 'label' => 'Titel',
-                'placeholder' => $feld['titel'],
+                'placeholder' => $default_felder[$nr]['titel'],
                 'value' => $titel,
+                'desc_tip' => false,
             ]);
-            woocommerce_wp_text_input([
+            
+            // Text-Feld (Textarea für bessere Bearbeitung)
+            woocommerce_wp_textarea_input([
                 'id' => "_workshop_erwartet_{$nr}_text",
                 'label' => 'Beschreibung',
-                'placeholder' => $feld['text'],
+                'placeholder' => $default_felder[$nr]['text'],
                 'value' => $text,
+                'rows' => 2,
+                'desc_tip' => false,
             ]);
+            
             echo '</div>';
         }
     }
