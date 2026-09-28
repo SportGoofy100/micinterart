@@ -22,6 +22,13 @@ class Micinterart_Workshop_Migration {
     private $dry_run = true;
     private $migration_log = [];
     
+    /**
+     * Setzt den Dry-Run-Modus
+     */
+    public function set_dry_run($dry_run) {
+        $this->dry_run = (bool)$dry_run;
+    }
+    
     public static function get_instance() {
         if (null === self::$instance) {
             self::$instance = new self();
@@ -316,7 +323,7 @@ class Micinterart_Workshop_Migration {
     /**
      * Führt die Migration aus
      */
-    private function execute_migration() {
+    public function execute_migration() {
         $this->migration_log = [];
         
         // 1. Workshops-Kategorien sicherstellen

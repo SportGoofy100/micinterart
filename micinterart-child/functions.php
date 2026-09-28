@@ -81,10 +81,20 @@ require_once get_stylesheet_directory() . '/includes/werk-admin.php';
 // ============================================================================
 // 4. WOOCOMMERCE WORKSHOP INTEGRATION (NEU)
 //    Workshop-Produktfelder, Kategorien, Checkout-Anpassungen
+//    Lade erst NACH dem WooCommerce geladen wurde (plugins_loaded Hook)
 // ============================================================================
 
-// Workshop WooCommerce Plugin (Produktfelder und Kategorien)
-if (class_exists('WooCommerce')) {
+/**
+ * Lade Workshop-WooCommerce-Includes erst nach dem WooCommerce geladen wurde
+ * WooCommerce wird im plugins_loaded Hook mit Priorität 0 geladen,
+ * also nutzen wir Priorität 100 um sicherzustellen, dass WC verfügbar ist.
+ */
+function micinterart_load_workshop_wc_includes() {
+    if (!class_exists('WooCommerce')) {
+        return;
+    }
+    
+    // Workshop WooCommerce Plugin (Produktfelder und Kategorien)
     require_once get_stylesheet_directory() . '/micinterart-workshop-woocommerce.php';
     
     // Workshop Migration (nur im Admin)
@@ -98,6 +108,89 @@ if (class_exists('WooCommerce')) {
     // 301-Weiterleitungen von alten URLs
     require_once get_stylesheet_directory() . '/includes/workshop-redirects.php';
 }
+add_action('plugins_loaded', 'micinterart_load_workshop_wc_includes', 100);
+
+// ============================================================================
+// 4B. MANUELLER MIGRATION-TRIGGER (für Debug/Fallback)
+//     Falls das Admin-Menü nicht erscheint, kann man diesen URL-Parameter nutzen:
+//     /wp-admin/?micinterart_run_migration=1
+//     ACHTUNG: Nur für Admins mit manage_options capability
+// ============================================================================
+
+/**
+ * Manueller Trigger für Migration falls Admin-Menü nicht funktioniert
+ * Aufruf: /wp-admin/?micinterart_run_migration=1
+ */
+function micinterart_workshop_migration_trigger() {
+    // Nur im Admin-Bereich
+    if (!is_admin()) {
+        return;
+    }
+    
+    // Nur für Admins mit manage_options
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    
+    // Nur wenn WooCommerce aktiv
+    if (!class_exists('WooCommerce')) {
+        return;
+    }
+    
+    // Prüfe ob Migration-Parameter gesetzt ist
+    if (isset($_GET['micinterart_run_migration']) && $_GET['micinterart_run_migration'] === '1') {
+        // Migration-Klasse laden falls noch nicht geschehen
+        if (!class_exists('Micinterart_Workshop_Migration')) {
+            require_once get_stylesheet_directory() . '/includes/workshop-migration.php';
+        }
+        
+        // Instanz erstellen und Migration ausführen
+        if (class_exists('Micinterart_Workshop_Migration')) {
+            $migration = Micinterart_Workshop_Migration::get_instance();
+            
+            // Dry-Run per Default (zum Testen)
+            // Für echte Migration: ?micinterart_run_migration=1&dry_run=0
+            $dry_run = !isset($_GET['dry_run']) || $_GET['dry_run'] !== '0';
+            $migration->set_dry_run($dry_run);
+            
+            if (!$dry_run) {
+                // Echte Migration - Nonce prüfen für Sicherheit
+                if (!isset($_GET['nonce']) || !wp_verify_nonce($_GET['nonce'], 'micinterart_migration_nonce')) {
+                    wp_die(
+                        '<h1>Fehler: Nonce ungültig</h1>' .
+                        '<p>Für die echte Migration wird ein gültiger Nonce benötigt.</p>' .
+                        '<p><a href="' . admin_url() . '">Zurück zum Admin</a></p>'
+                    );
+                }
+            }
+            
+            $migration->execute_migration();
+            
+            // Ergebnisse anzeigen
+            wp_die(
+                '<h1>Workshop Migration</h1>' .
+                '<p>Migration ' . ($dry_run ? 'TESTLAUF' : 'ECHT') . ' ausgeführt.</p>' .
+                '<p><a href="' . admin_url() . '">Zurück zum Admin</a></p>'
+            );
+        }
+    }
+    
+    // Debug-Check: Prüfe ob WooCommerce aktiv ist
+    if (isset($_GET['micinterart_check_wc']) && $_GET['micinterart_check_wc'] === '1') {
+        $wc_active = class_exists('WooCommerce');
+        $is_admin = is_admin();
+        $user_can = current_user_can('manage_options');
+        
+        wp_die(
+            '<h1>WooCommerce Check</h1>' .
+            '<p>WooCommerce aktiv: ' . ($wc_active ? 'JA' : 'NEIN') . '</p>' .
+            '<p>is_admin(): ' . ($is_admin ? 'JA' : 'NEIN') . '</p>' .
+            '<p>current_user_can(manage_options): ' . ($user_can ? 'JA' : 'NEIN') . '</p>' .
+            '<p><a href="' . admin_url() . '">Zurück zum Admin</a></p>'
+        );
+    }
+}
+add_action('admin_init', 'micinterart_workshop_migration_trigger', 50);
 
 // ============================================================================
 // 5. WORKSHOP – FRONTEND-ANZEIGE (ANGEPASST)
