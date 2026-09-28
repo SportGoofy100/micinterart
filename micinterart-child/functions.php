@@ -1,36 +1,5 @@
 <?php
 /**
- * TEMPORÄR: Migration manuell starten
- */
-add_action('admin_notices', function() {
-    if (isset($_GET['run_migration_now']) && current_user_can('manage_options')) {
-        $migration_file = get_stylesheet_directory() . '/includes/workshop-migration.php';
-        
-        if (!class_exists('WooCommerce')) {
-            echo '<div class="error"><p><strong>❌ FEHLER:</strong> WooCommerce ist nicht aktiv!</p></div>';
-            return;
-        }
-        
-        if (!file_exists($migration_file)) {
-            echo '<div class="error"><p><strong>❌ FEHLER:</strong> Datei nicht gefunden: ' . esc_html($migration_file) . '</p></div>';
-            return;
-        }
-        
-        require_once $migration_file;
-        
-        if (!class_exists('Micinterart_Workshop_Migration')) {
-            echo '<div class="error"><p><strong>❌ FEHLER:</strong> Migration-Klasse nicht gefunden!</p></div>';
-            return;
-        }
-        
-        $migration = Micinterart_Workshop_Migration::get_instance();
-        $migration->dry_run = false;
-        $migration->execute_migration();
-        
-        echo '<div class="updated"><p><strong>✅ Migration wurde ausgeführt!</strong> Prüfe die Produkte unter <a href="edit.php?post_type=product">Produkte</a>.</p></div>';
-    }
-})
-/**
  * Micinterart Child-Theme – functions.php
  *
  * Alle Funktionen sind in einzelne Module ausgelagert.
@@ -172,7 +141,7 @@ add_action('wp_head', 'micinterart_lh_font_display_swap', 2);
 // ============================================================================
 // 8. VERALTETE WORKSHOP-INCLUDES (DEAKTIVIERT)
 //    Die folgenden Includes werden nicht mehr geladen, da Workshops nun
-    // über WooCommerce verwaltet werden
+//    über WooCommerce verwaltet werden
 // ============================================================================
 // 
 // DEAKTIVIERT (ersetzt durch WooCommerce):
