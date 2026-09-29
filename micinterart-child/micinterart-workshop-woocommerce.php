@@ -181,9 +181,6 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_anmeldung_email',
             '_workshop_anmeldung_telefon',
             '_workshop_anmeldung_link',
-            '_workshop_flyer',
-            '_workshop_wiederholung_frequenz',
-            '_workshop_wiederholung_anzahl',
             '_workshop_is_paar_preis',
             '_workshop_current_bookings',
             '_workshop_status',
@@ -255,6 +252,18 @@ class Micinterart_Workshop_WooCommerce {
             $('#general_product_data .options_group.pricing').addClass('hide_if_workshop');
             // Steuer-Felder für Workshops anzeigen
             $('#general_product_data .options_group').has('#_tax_status, #_tax_class').addClass('show_if_workshop');
+            // Typ-Optionen (Virtuell, Herunterladbar, Elektrogerät, Differenzbesteuert,
+            // Lebensmittel ...) sind Checkbox-Labels im Kopf der Box, außerhalb der Panels.
+            var $typeOptions = $('#woocommerce-product-data label').filter(function() {
+                return $(this).find('input[type="checkbox"]').length > 0 &&
+                       $(this).closest('.panel, .woocommerce_options_panel').length === 0;
+            });
+            function toggleTypeOptions() {
+                $typeOptions.toggle($('select#product-type').val() !== 'workshop');
+            }
+            $('select#product-type').on('change', toggleTypeOptions);
+            $(document.body).on('woocommerce-product-type-change', toggleTypeOptions);
+
             $('select#product-type').trigger('change');
         });
         </script>
@@ -293,9 +302,6 @@ class Micinterart_Workshop_WooCommerce {
         $anmeldung_email = get_post_meta($product_id, '_workshop_anmeldung_email', true);
         $anmeldung_telefon = get_post_meta($product_id, '_workshop_anmeldung_telefon', true);
         $anmeldung_link = get_post_meta($product_id, '_workshop_anmeldung_link', true);
-        $flyer_id = get_post_meta($product_id, '_workshop_flyer', true);
-        $wiederholung_frequenz = get_post_meta($product_id, '_workshop_wiederholung_frequenz', true);
-        $wiederholung_anzahl = get_post_meta($product_id, '_workshop_wiederholung_anzahl', true);
         $is_paar = get_post_meta($product_id, '_workshop_is_paar_preis', true);
         $status = get_post_meta($product_id, '_workshop_status', true);
         $current_bookings = get_post_meta($product_id, '_workshop_current_bookings', true);
@@ -454,45 +460,6 @@ class Micinterart_Workshop_WooCommerce {
         ]);
         echo '</div>';
         
-        // Wiederholende Workshops
-        echo '<h3>' . __('Wiederholung (optional)', 'micinterart') . '</h3>';
-        echo '<div class="options_group">';
-        woocommerce_wp_select([
-            'id' => '_workshop_wiederholung_frequenz',
-            'label' => __('Frequenz', 'micinterart'),
-            'options' => [
-                '' => 'Keine Wiederholung',
-                'woechentlich' => 'Wöchentlich',
-                'zweiwoechentlich' => 'Zweiwöchentlich',
-                'monatlich' => 'Monatlich',
-            ],
-            'value' => $wiederholung_frequenz,
-            'desc_tip' => true,
-            'description' => __('Wählen Sie eine Frequenz, um automatische Wiederholungen zu erstellen', 'micinterart'),
-        ]);
-        woocommerce_wp_text_input([
-            'id' => '_workshop_wiederholung_anzahl',
-            'label' => __('Anzahl Termine', 'micinterart'),
-            'placeholder' => '10',
-            'value' => $wiederholung_anzahl,
-            'type' => 'number',
-        ]);
-        echo '</div>';
-        
-        // Flyer
-        echo '<h3>' . __('Flyer', 'micinterart') . '</h3>';
-        echo '<div class="options_group">';
-        woocommerce_wp_text_input([
-            'id' => '_workshop_flyer',
-            'label' => __('Flyer (Media-ID)', 'micinterart'),
-            'placeholder' => '12345',
-            'value' => $flyer_id,
-            'type' => 'number',
-            'desc_tip' => true,
-            'description' => __('Die ID des Flyer-Bildes aus der Mediathek', 'micinterart'),
-        ]);
-        echo '</div>';
-        
         // "Was dich erwartet" Felder
         $this->render_erwartet_fields($product_id);
         
@@ -593,9 +560,6 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_anmeldung_email',
             '_workshop_anmeldung_telefon',
             '_workshop_anmeldung_link',
-            '_workshop_flyer',
-            '_workshop_wiederholung_frequenz',
-            '_workshop_wiederholung_anzahl',
             '_workshop_current_bookings',
             '_workshop_status',
         ];
@@ -604,7 +568,7 @@ class Micinterart_Workshop_WooCommerce {
             if (isset($_POST[$field])) {
                 $value = sanitize_text_field($_POST[$field]);
                 // Für numerische Felder
-                if (in_array($field, ['_workshop_dauer_stunden', '_workshop_max_teilnehmer', '_workshop_current_bookings', '_workshop_anmeldung_telefon', '_workshop_flyer', '_workshop_wiederholung_anzahl'])) {
+                if (in_array($field, ['_workshop_dauer_stunden', '_workshop_max_teilnehmer', '_workshop_current_bookings', '_workshop_anmeldung_telefon'])) {
                     $value = is_numeric($_POST[$field]) ? absint($_POST[$field]) : '';
                 }
                 update_post_meta($post_id, $field, $value);
