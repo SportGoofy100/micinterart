@@ -539,12 +539,13 @@ class Micinterart_Workshop_WooCommerce {
     }
 }
 
-// Initialisierung
+// Initialisierung - MUSS VOR oder IN init Hook sein, damit create_workshop_categories registriert wird
 function micinterart_workshop_wc_init() {
     Micinterart_Workshop_WooCommerce::get_instance();
 }
 
-add_action('woocommerce_loaded', 'micinterart_workshop_wc_init');
+// FRÜH laden, damit init Hooks registriert werden BEVOR init ausgelöst wird
+add_action('plugins_loaded', 'micinterart_workshop_wc_init', 11);
 
 // Hilfsfunktion zum Prüfen ob ein Produkt ein Workshop ist
 function micinterart_wc_is_workshop_product($product) {
