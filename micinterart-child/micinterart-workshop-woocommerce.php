@@ -37,6 +37,15 @@ class WC_Product_Workshop extends WC_Product_Simple {
     public function get_type() {
         return 'workshop';
     }
+
+    // Workshops sind Dienstleistungen: kein Versand
+    public function is_virtual() {
+        return true;
+    }
+
+    public function needs_shipping() {
+        return false;
+    }
     
     /**
      * Überschreibt die Standard-Preis-Anzeige
@@ -120,9 +129,11 @@ class Micinterart_Workshop_WooCommerce {
         add_action('woocommerce_product_data_panels', [$this, 'render_workshop_product_tab']);
         add_action('woocommerce_process_product_meta', [$this, 'save_workshop_product_fields']);
         
-        // Standard-Felder für Workshop-Produkte ausblenden
-        add_filter('woocommerce_product_options_general_product_data', [$this, 'hide_standard_fields_for_workshop']);
-        add_filter('woocommerce_product_options_shipping', [$this, 'hide_shipping_fields_for_workshop']);
+        // Standard-Felder (Versand, Lager, Preisfelder ...) per JS/Klassen ausblenden
+        add_action('admin_footer', [$this, 'output_admin_type_toggle_js']);
+        
+        // Frontend: Warenkorb-Button wie bei einfachen Produkten
+        add_action('woocommerce_workshop_add_to_cart', 'woocommerce_simple_add_to_cart');
         
         // Workshop-spezifische Validierung
         add_filter('woocommerce_product_is_purchasable', [$this, 'workshop_product_is_purchasable'], 10, 2);
@@ -147,52 +158,6 @@ class Micinterart_Workshop_WooCommerce {
             $classname = 'WC_Product_Workshop';
         }
         return $classname;
-    }
-    
-    /**
-     * Blendet nicht relevante Standard-Felder für Workshop-Produkte aus
-     */
-    public function hide_standard_fields_for_workshop($options) {
-        global $post;
-        
-        if (!isset($post->ID)) {
-            return $options;
-        }
-        
-        $product = wc_get_product($post->ID);
-        if ($product && $product->get_type() === 'workshop') {
-            // Felder ausblenden, die nicht für Workshops relevant sind
-            $fields_to_hide = [
-                'virtual',
-                'downloadable',
-                'sold_individually',
-            ];
-            
-            foreach ($fields_to_hide as $field) {
-                unset($options[$field]);
-            }
-        }
-        
-        return $options;
-    }
-    
-    /**
-     * Blendet Versand-Felder für Workshop-Produkte aus
-     */
-    public function hide_shipping_fields_for_workshop($options) {
-        global $post;
-        
-        if (!isset($post->ID)) {
-            return $options;
-        }
-        
-        $product = wc_get_product($post->ID);
-        if ($product && $product->get_type() === 'workshop') {
-            // Versandklasse und Gewicht ausblenden
-            unset($options['product_shipping_class']);
-        }
-        
-        return $options;
     }
     
     /**
@@ -252,22 +217,48 @@ class Micinterart_Workshop_WooCommerce {
      * Nur für Workshop-Produkttyp
      */
     public function add_workshop_product_tab($tabs) {
-        // Nur für Workshop-Produkte
-        global $post, $product_object;
-        
-        if (!isset($product_object) || !is_a($product_object, 'WC_Product')) {
-            $product_object = wc_get_product($post->ID ?? 0);
+        // Immer registrieren; Sichtbarkeit steuert WooCommerce per Klasse show_if_workshop.
+        // (Nur bei gespeicherten Workshops auszugeben würde beim Umschalten des Dropdowns nichts anzeigen.)
+        $tabs['workshop'] = [
+            'label'    => __('Workshop-Details', 'micinterart'),
+            'target'   => 'workshop_product_data',
+            'class'    => ['show_if_workshop'],
+            'priority' => 5,
+        ];
+
+        // Allgemein-Tab (Steuer) für Workshops sichtbar lassen
+        if (isset($tabs['general'])) {
+            $tabs['general']['class'][] = 'show_if_workshop';
         }
-        
-        if ($product_object && $product_object->get_type() === 'workshop') {
-            $tabs['workshop'] = [
-                'label' => __('Workshop-Details', 'micinterart'),
-                'target' => 'workshop_product_data',
-                'priority' => 25,
-            ];
+        // Für Workshops irrelevante Tabs ausblenden
+        foreach (['shipping', 'linked_product', 'attribute', 'inventory'] as $key) {
+            if (isset($tabs[$key])) {
+                $tabs[$key]['class'][] = 'hide_if_workshop';
+            }
         }
-        
+
         return $tabs;
+    }
+
+    /**
+     * Blendet Preis-/Versandfelder aus und zeigt Steuerfelder für den Typ 'workshop'
+     */
+    public function output_admin_type_toggle_js() {
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if (!$screen || $screen->id !== 'product') {
+            return;
+        }
+        ?>
+        <script>
+        jQuery(function($) {
+            // Preisfelder von WC ausblenden (Preis kommt aus "Workshop-Details")
+            $('#general_product_data .options_group.pricing').addClass('hide_if_workshop');
+            // Steuer-Felder für Workshops anzeigen
+            $('#general_product_data .options_group').has('#_tax_status, #_tax_class').addClass('show_if_workshop');
+            $('select#product-type').trigger('change');
+        });
+        </script>
+        <?php
     }
     
     /**
@@ -279,9 +270,7 @@ class Micinterart_Workshop_WooCommerce {
         if (!is_a($product_object, 'WC_Product')) {
             $product_object = wc_get_product($post->ID ?? 0);
         }
-        
-        // Nur für Workshop-Produkte
-        if ($product_object->get_type() !== 'workshop') {
+        if (!$product_object) {
             return;
         }
         
@@ -314,15 +303,8 @@ class Micinterart_Workshop_WooCommerce {
         // Lagerbestand aus WC holen
         $stock_quantity = $product_object->get_stock_quantity();
         
-        // Synchronisiere Lagerbestand mit max_teilnehmer
-        if (empty($stock_quantity) && !empty($max_teilnehmer)) {
-            $stock = max(0, (int)$max_teilnehmer - (int)$current_bookings);
-            $product_object->set_stock_quantity($stock);
-            $product_object->set_manage_stock(true);
-            $product_object->save();
-        }
         
-        echo '<div id="workshop_product_data" class="panel woocommerce_options_panel">';
+        echo '<div id="workshop_product_data" class="panel woocommerce_options_panel hidden">';
         
         // Datum und Uhrzeit
         woocommerce_wp_text_input([
@@ -646,6 +628,17 @@ class Micinterart_Workshop_WooCommerce {
             }
         }
         
+        // WooCommerce-Preis aus _workshop_preis übernehmen (Warenkorb nutzt _price)
+        if (isset($_POST['_workshop_preis']) && $_POST['_workshop_preis'] !== '') {
+            $wc_preis = wc_format_decimal(wp_unslash($_POST['_workshop_preis']));
+            $p = wc_get_product($post_id);
+            if ($p) {
+                $p->set_regular_price($wc_preis);
+                $p->set_virtual(true);
+                $p->save();
+            }
+        }
+
         // Synchronisiere max_teilnehmer mit Lagerbestand
         if (isset($_POST['_workshop_max_teilnehmer']) && !empty($_POST['_workshop_max_teilnehmer'])) {
             $max_teilnehmer = (int)$_POST['_workshop_max_teilnehmer'];
@@ -672,7 +665,7 @@ class Micinterart_Workshop_WooCommerce {
             // Nicht kaufbar wenn:
             // - Ausverkauft
             // - Status ist "ausgebucht", "beendet" oder "abgesagt"
-            if ($stock <= 0 || in_array($status, ['ausgebucht', 'beendet', 'abgesagt'])) {
+            if ((!empty($product->get_meta('_workshop_max_teilnehmer', true)) && $stock <= 0) || in_array($status, ['ausgebucht', 'beendet', 'abgesagt'])) {
                 $is_purchasable = false;
             }
         }
