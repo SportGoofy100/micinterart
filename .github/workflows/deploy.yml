@@ -22,7 +22,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           local-dir: ./micinterart-child/
-          server-dir: /test.micinterart.de/wp-content/themes/micinterart-child
+          server-dir: /staging.micinterart.de/wp-content/themes/micinterart-child
           exclude: |
             **/.git*
             **/.git*/**
@@ -45,7 +45,7 @@ jobs:
           protocol: ftps
           log-level: verbose
           local-dir: ./micinterart-gallery/
-          server-dir: /test.micinterart.de/wp-content/themes/micinterart-child
+          server-dir: /staging.micinterart.de/wp-content/themes/micinterart-child
           exclude: |
             **/.git*
             **/.git*/**
