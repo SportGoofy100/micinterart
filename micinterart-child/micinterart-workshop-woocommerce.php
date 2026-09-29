@@ -549,9 +549,6 @@ function micinterart_workshop_wc_init() {
     Micinterart_Workshop_WooCommerce::get_instance();
 }
 
-// FRÜH laden, damit der Produkttyp vor dem init Hook registriert wird
-add_action('plugins_loaded', 'micinterart_workshop_wc_init', 11);
-
 // Hilfsfunktion zum Prüfen ob ein Produkt ein Workshop ist
 function micinterart_wc_is_workshop_product($product) {
     if (!is_a($product, 'WC_Product')) {

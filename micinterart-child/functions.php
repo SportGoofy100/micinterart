@@ -97,6 +97,11 @@ function micinterart_load_workshop_wc_includes() {
     // Workshop WooCommerce Plugin (Produktfelder und Kategorien)
     require_once get_stylesheet_directory() . '/micinterart-workshop-woocommerce.php';
     
+    // Initialisiere Workshop-WC sofort (nicht erst bei Priority 11)
+    if (class_exists('Micinterart_Workshop_WooCommerce')) {
+        Micinterart_Workshop_WooCommerce::get_instance();
+    }
+    
     // Workshop Migration (nur im Admin)
     if (is_admin()) {
         require_once get_stylesheet_directory() . '/includes/workshop-migration.php';
