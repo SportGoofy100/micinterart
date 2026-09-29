@@ -107,8 +107,9 @@ class Micinterart_Workshop_WooCommerce {
     }
     
     private function init_hooks() {
-        // Produkttyp registrieren (FRÜH, damit WC ihn kennt)
+        // Produkttyp registrieren (für Admin-Dropdown)
         add_filter('woocommerce_product_type_selector', [$this, 'add_workshop_product_type']);
+        add_filter('woocommerce_product_type_options', [$this, 'add_workshop_product_type']);
         
         // Produktklasse für Workshop-Typ registrieren
         add_filter('woocommerce_product_class', [$this, 'add_workshop_product_class'], 10, 4);
