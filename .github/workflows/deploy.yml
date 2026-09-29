@@ -45,7 +45,7 @@ jobs:
           protocol: ftps
           log-level: verbose
           local-dir: ./micinterart-gallery/
-          server-dir: /staging.micinterart.de/wp-content/plugins/micinterart-gallery/
+          server-dir: /test.micinterart.de/wp-content/themes/micinterart-child
           exclude: |
             **/.git*
             **/.git*/**
