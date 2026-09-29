@@ -107,9 +107,11 @@ class Micinterart_Workshop_WooCommerce {
     }
     
     private function init_hooks() {
-        // Produkttyp registrieren (für Admin-Dropdown)
-        add_filter('woocommerce_product_type_selector', [$this, 'add_workshop_product_type']);
-        add_filter('woocommerce_product_type_options', [$this, 'add_workshop_product_type']);
+        // Produkttyp registrieren (für Admin-Dropdown) - im Admin-Bereich
+        add_action('admin_init', function() {
+            add_filter('woocommerce_product_type_selector', [$this, 'add_workshop_product_type']);
+            add_filter('woocommerce_product_type_options', [$this, 'add_workshop_product_type']);
+        });
         
         // Produktklasse für Workshop-Typ registrieren
         add_filter('woocommerce_product_class', [$this, 'add_workshop_product_class'], 10, 4);
