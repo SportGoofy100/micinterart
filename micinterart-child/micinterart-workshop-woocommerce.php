@@ -145,13 +145,13 @@ class Micinterart_Workshop_WooCommerce {
     
     /**
      * Fügt Workshop-Reiter zum Produkt-Editor hinzu
+     * Keine show_if_* Klasse, damit der Reiter immer sichtbar ist (wird in render_funktion geprüft)
      */
     public function add_workshop_product_tab($tabs) {
         $tabs['workshop'] = [
             'label' => __('Workshop-Details', 'micinterart'),
             'target' => 'workshop_product_data',
             'priority' => 25,
-            'class' => ['show_if_workshop'],
         ];
         return $tabs;
     }
