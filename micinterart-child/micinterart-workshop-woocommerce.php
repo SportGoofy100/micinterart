@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Micinterart Workshop WooCommerce
- * Description: Wandelt Workshops in WooCommerce-Produkte um mit speziellen Feldern und Kategorien
- * Version: 1.0.0
+ * Description: Erweitert WooCommerce um einen Workshop-Produkttyp mit speziellen Feldern
+ * Version: 2.0.0
  * Author: Micinterart
  * Text Domain: micinterart
  * Requires at least: 5.8
@@ -18,6 +18,78 @@ if (!defined('ABSPATH')) {
 if (!class_exists('WooCommerce')) {
     exit;
 }
+
+/**
+ * ============================================================================
+ * WORKSHOP PRODUKTTYP
+ * ============================================================================
+ */
+
+/**
+ * Workshop-Produktklasse - Erbt von WC_Product_Simple
+ * Fügt Workshop-spezifische Logik hinzu
+ */
+class WC_Product_Workshop extends WC_Product_Simple {
+    
+    /**
+     * Konstrukt: Setzt den Produkttyp auf 'workshop'
+     */
+    public function __construct($product) {
+        $this->product_type = 'workshop';
+        parent::__construct($product);
+    }
+    
+    /**
+     * Überschreibt die Standard-Preis-Anzeige
+     * Zeigt ggf. Preis-Info an
+     */
+    public function get_price_html($deprecated = '') {
+        $price = $this->get_price();
+        $preis_info = $this->get_meta('_workshop_preis_info', true);
+        
+        $html = parent::get_price_html($deprecated);
+        
+        if (!empty($preis_info)) {
+            $html .= '<small class="workshop-preis-info">' . esc_html($preis_info) . '</small>';
+        }
+        
+        return $html;
+    }
+    
+    /**
+     * Automatische Stock-Berechnung aus Max. Teilnehmer
+     */
+    public function get_stock_quantity($context = 'view') {
+        $stock = parent::get_stock_quantity($context);
+        
+        // Falls Stock nicht gesetzt, aber max_teilnehmer vorhanden
+        if ($stock === '' || $stock === null) {
+            $max_teilnehmer = $this->get_meta('_workshop_max_teilnehmer', true);
+            $current_bookings = $this->get_meta('_workshop_current_bookings', true);
+            
+            if (!empty($max_teilnehmer)) {
+                $stock = max(0, (int)$max_teilnehmer - (int)$current_bookings);
+                $this->set_stock_quantity($stock);
+                $this->save();
+            }
+        }
+        
+        return $stock;
+    }
+    
+    /**
+     * Prüft ob das Produkt ein Workshop ist
+     */
+    public function is_workshop() {
+        return $this->get_type() === 'workshop';
+    }
+}
+
+/**
+ * ============================================================================
+ * WORKSHOP WOOCOMMERCE INTEGRATION
+ * ============================================================================
+ */
 
 class Micinterart_Workshop_WooCommerce {
     
@@ -35,69 +107,43 @@ class Micinterart_Workshop_WooCommerce {
     }
     
     private function init_hooks() {
-        // Produktkategorien erstellen
-        add_action('init', [$this, 'create_workshop_categories']);
+        // Produkttyp registrieren (FRÜH, damit WC ihn kennt)
+        add_filter('woocommerce_product_type_selector', [$this, 'add_workshop_product_type']);
         
-        // Benutzerdefinierte Felder für Workshops registrieren
+        // Produktklasse für Workshop-Typ registrieren
+        add_filter('woocommerce_product_class', [$this, 'add_workshop_product_class'], 10, 4);
+        
+        // Felder registrieren
         add_action('init', [$this, 'register_workshop_product_fields']);
         
-        // Workshop-Reiter im Produkt-Editor hinzufügen
+        // Reiter und Panels für Workshop-Produkte
         add_filter('woocommerce_product_data_tabs', [$this, 'add_workshop_product_tab']);
         add_action('woocommerce_product_data_panels', [$this, 'render_workshop_product_tab']);
         add_action('woocommerce_process_product_meta', [$this, 'save_workshop_product_fields']);
         
-        // Workshop-Produkte beim Speichern verarbeiten
-        add_action('woocommerce_before_product_object_save', [$this, 'before_product_save'], 10, 2);
-        
-        // Produkt ist ein Workshop? (Hilfsfunktion)
-        add_filter('micinterart_is_workshop_product', [$this, 'is_workshop_product'], 10, 2);
-        
         // Workshop-spezifische Validierung
         add_filter('woocommerce_product_is_purchasable', [$this, 'workshop_product_is_purchasable'], 10, 2);
         
-        // Workshop-spezifische Stock-Logik
+        // Lagerbestand aus Workshop-Feldern
         add_filter('woocommerce_product_get_stock_quantity', [$this, 'workshop_product_stock_quantity'], 10, 2);
     }
     
     /**
-     * Erstellt die Workshop-Produktkategorien
+     * Fügt Workshop als Produkttyp hinzu
      */
-    public function create_workshop_categories() {
-        // Prüfen ob die Kategorien bereits existieren
-        $workshops_term = get_term_by('slug', 'workshops', 'product_cat');
-        if (!$workshops_term) {
-            $workshops_id = wp_insert_term(
-                'Workshops',
-                'product_cat',
-                [
-                    'description' => 'Alle Workshops',
-                    'slug' => 'workshops'
-                ]
-            );
-        } else {
-            $workshops_id = $workshops_term->term_id;
+    public function add_workshop_product_type($types) {
+        $types['workshop'] = __('Workshop', 'micinterart');
+        return $types;
+    }
+    
+    /**
+     * Registriert die WC_Product_Workshop Klasse für den Produkttyp 'workshop'
+     */
+    public function add_workshop_product_class($classname, $product_type, $product_id, $product) {
+        if ($product_type === 'workshop') {
+            $classname = 'WC_Product_Workshop';
         }
-        
-        // Unterkategorien erstellen
-        $sub_categories = [
-            ['name' => 'Atelierkurse', 'slug' => 'atelierkurse'],
-            ['name' => 'Kinderworkshops', 'slug' => 'kinderworkshops']
-        ];
-        
-        foreach ($sub_categories as $sub_cat) {
-            $term = get_term_by('slug', $sub_cat['slug'], 'product_cat');
-            if (!$term) {
-                wp_insert_term(
-                    $sub_cat['name'],
-                    'product_cat',
-                    [
-                        'description' => $sub_cat['name'],
-                        'slug' => $sub_cat['slug'],
-                        'parent' => $workshops_id ? (is_array($workshops_id) ? $workshops_id['term_id'] : $workshops_id) : 0
-                    ]
-                );
-            }
-        }
+        return $classname;
     }
     
     /**
@@ -145,14 +191,24 @@ class Micinterart_Workshop_WooCommerce {
     
     /**
      * Fügt Workshop-Reiter zum Produkt-Editor hinzu
-     * Keine show_if_* Klasse, damit der Reiter immer sichtbar ist (wird in render_funktion geprüft)
+     * Nur für Workshop-Produkttyp
      */
     public function add_workshop_product_tab($tabs) {
-        $tabs['workshop'] = [
-            'label' => __('Workshop-Details', 'micinterart'),
-            'target' => 'workshop_product_data',
-            'priority' => 25,
-        ];
+        // Nur für Workshop-Produkte
+        global $post, $product_object;
+        
+        if (!isset($product_object) || !is_a($product_object, 'WC_Product')) {
+            $product_object = wc_get_product($post->ID ?? 0);
+        }
+        
+        if ($product_object && $product_object->get_type() === 'workshop') {
+            $tabs['workshop'] = [
+                'label' => __('Workshop-Details', 'micinterart'),
+                'target' => 'workshop_product_data',
+                'priority' => 25,
+            ];
+        }
+        
         return $tabs;
     }
     
@@ -163,14 +219,11 @@ class Micinterart_Workshop_WooCommerce {
         global $post, $product_object;
         
         if (!is_a($product_object, 'WC_Product')) {
-            $product_object = wc_get_product($post->ID);
+            $product_object = wc_get_product($post->ID ?? 0);
         }
         
-        // Nur für Produkte in der Workshops-Kategorie anzeigen
-        if (!$this->is_workshop_product($product_object)) {
-            echo '<div id="workshop_product_data" class="panel woocommerce_options_panel hidden">';
-            echo '<p>' . __('Dieser Reiter ist nur für Produkte in der Kategorie "Workshops" sichtbar.', 'micinterart') . '</p>';
-            echo '</div>';
+        // Nur für Workshop-Produkte
+        if ($product_object->get_type() !== 'workshop') {
             return;
         }
         
@@ -194,9 +247,11 @@ class Micinterart_Workshop_WooCommerce {
         // Lagerbestand aus WC holen
         $stock_quantity = $product_object->get_stock_quantity();
         
-        // Werkzeug: Falls Lagerbestand nicht gesetzt, aber max_teilnehmer vorhanden, synchronisieren
+        // Synchronisiere Lagerbestand mit max_teilnehmer
         if (empty($stock_quantity) && !empty($max_teilnehmer)) {
-            $product_object->set_stock_quantity($max_teilnehmer - (int)$current_bookings);
+            $stock = max(0, (int)$max_teilnehmer - (int)$current_bookings);
+            $product_object->set_stock_quantity($stock);
+            $product_object->set_manage_stock(true);
             $product_object->save();
         }
         
@@ -396,6 +451,12 @@ class Micinterart_Workshop_WooCommerce {
      * Speichert die Workshop-Felder
      */
     public function save_workshop_product_fields($post_id) {
+        // Nur für Workshop-Produkte
+        $product = wc_get_product($post_id);
+        if (!$product || $product->get_type() !== 'workshop') {
+            return;
+        }
+        
         $fields = [
             '_workshop_datum',
             '_workshop_uhrzeit_von',
@@ -450,104 +511,51 @@ class Micinterart_Workshop_WooCommerce {
     }
     
     /**
-     * Prüft ob ein Produkt ein Workshop ist
-     */
-    public function is_workshop_product($is_workshop, $product) {
-        if (!is_a($product, 'WC_Product')) {
-            return false;
-        }
-        
-        $product_id = $product->get_id();
-        $terms = get_the_terms($product_id, 'product_cat');
-        
-        if (is_wp_error($terms) || empty($terms)) {
-            return false;
-        }
-        
-        foreach ($terms as $term) {
-            if ($term->slug === 'workshops' || $term->slug === 'atelierkurse' || $term->slug === 'kinderworkshops') {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Prüft ob ein Workshop-Produkt kaufbar ist
+     * Workshop-spezifische Validierung: Prüfe ob Lagerbestand > 0
      */
     public function workshop_product_is_purchasable($is_purchasable, $product) {
-        if (!$this->is_workshop_product(false, $product)) {
-            return $is_purchasable;
+        if ($product->get_type() === 'workshop') {
+            $stock = $product->get_stock_quantity();
+            $status = $product->get_meta('_workshop_status', true);
+            
+            // Nicht kaufbar wenn:
+            // - Ausverkauft
+            // - Status ist "ausgebucht", "beendet" oder "abgesagt"
+            if ($stock <= 0 || in_array($status, ['ausgebucht', 'beendet', 'abgesagt'])) {
+                $is_purchasable = false;
+            }
         }
-        
-        $product_id = $product->get_id();
-        $status = get_post_meta($product_id, '_workshop_status', true);
-        
-        // Nicht kaufbar bei diesen Status
-        $non_purchasable_status = ['beendet', 'abgesagt', 'ausgebucht'];
-        
-        if (in_array($status, $non_purchasable_status)) {
-            return false;
-        }
-        
         return $is_purchasable;
     }
     
     /**
-     * Workshop-spezifische Lagerbestands-Logik
+     * Workshop-spezifische Stock-Logik: Lagerbestand aus Workshop-Feldern
      */
-    public function workshop_product_stock_quantity($quantity, $product) {
-        if (!$this->is_workshop_product(false, $product)) {
-            return $quantity;
-        }
-        
-        $product_id = $product->get_id();
-        $max_teilnehmer = get_post_meta($product_id, '_workshop_max_teilnehmer', true);
-        $current_bookings = get_post_meta($product_id, '_workshop_current_bookings', true);
-        
-        if (!empty($max_teilnehmer)) {
-            $calculated = max(0, (int)$max_teilnehmer - (int)$current_bookings);
-            return $calculated;
-        }
-        
-        return $quantity;
-    }
-    
-    /**
-     * Vor dem Speichern des Produkts
-     */
-    public function before_product_save($product, $data_store) {
-        // Nicht Workshops überspringen
-        if (!$this->is_workshop_product(false, $product)) {
-            return;
-        }
-        
-        $product_id = $product->get_id();
-        
-        // Wenn Stock-Management aktiviert und max_teilnehmer gesetzt
-        if ($product->get_manage_stock() && $product->get_stock_quantity() !== null) {
-            $max_teilnehmer = get_post_meta($product_id, '_workshop_max_teilnehmer', true);
+    public function workshop_product_stock_quantity($stock_quantity, $product) {
+        if ($product->get_type() === 'workshop') {
+            $max_teilnehmer = $product->get_meta('_workshop_max_teilnehmer', true);
+            $current_bookings = $product->get_meta('_workshop_current_bookings', true);
+            
             if (!empty($max_teilnehmer)) {
-                // Synchronisiere current_bookings
-                $stock = $product->get_stock_quantity();
-                $max = (int)$max_teilnehmer;
-                $current_bookings = max(0, $max - $stock);
-                update_post_meta($product_id, '_workshop_current_bookings', $current_bookings);
+                $stock_quantity = max(0, (int)$max_teilnehmer - (int)$current_bookings);
             }
         }
+        return $stock_quantity;
     }
 }
 
-// Initialisierung - MUSS VOR oder IN init Hook sein, damit create_workshop_categories registriert wird
+// Initialisierung - MUSS FRÜH sein, damit der Produkttyp registriert wird
 function micinterart_workshop_wc_init() {
     Micinterart_Workshop_WooCommerce::get_instance();
 }
 
-// FRÜH laden, damit init Hooks registriert werden BEVOR init ausgelöst wird
+// FRÜH laden, damit der Produkttyp vor dem init Hook registriert wird
 add_action('plugins_loaded', 'micinterart_workshop_wc_init', 11);
 
 // Hilfsfunktion zum Prüfen ob ein Produkt ein Workshop ist
 function micinterart_wc_is_workshop_product($product) {
-    return Micinterart_Workshop_WooCommerce::get_instance()->is_workshop_product(false, $product);
+    if (!is_a($product, 'WC_Product')) {
+        return false;
+    }
+    return $product->get_type() === 'workshop';
 }
