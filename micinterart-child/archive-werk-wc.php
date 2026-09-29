@@ -1,0 +1,172 @@
+<?php
+/**
+ * Template für Archivseite: Werke (WC-Produkte vom Typ 'werk')
+ * 
+ * Ersetzt die alte archive-werk.php für das CPT 'werk'
+ * 
+ * @package Micinterart
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// WC-Produkte vom Typ 'werk' abfragen
+$paged = (get_query_var('paged')) ? get_query_var('paged') : 1;
+$werk_query = new WP_Query([
+    'post_type' => 'product',
+    'posts_per_page' => 12,
+    'paged' => $paged,
+    'tax_query' => [[
+        'taxonomy' => 'product_type',
+        'field' => 'slug',
+        'terms' => 'werk',
+    ]],
+]);
+
+// Globale Query für Template-Funktionen
+if ($werk_query->have_posts()) {
+    global $wp_query;
+    $temp_wp_query = $wp_query;
+    $wp_query = $werk_query;
+}
+
+get_header();
+$is_en = micinterart_is_english();
+
+?>
+
+<style>
+<?php readfile(get_stylesheet_directory() . '/archive-werk-styles.php'); ?>
+</style>
+
+<main id="primary" class="site-main werke-archive">
+    
+    <header class="page-header">
+        <h1 class="page-title"><?php echo $is_en ? 'Artworks' : esc_html__('Meine Werke', 'micinterart'); ?></h1>
+        
+        <?php
+        // Beschreibung
+        echo '<div class="archive-description">' . ($is_en ? 'Discover my artistic creations' : 'Entdecke meine künstlerischen Schöpfungen') . '</div>';
+        ?>
+    </header>
+
+    <?php if ($werk_query->have_posts()) : ?>
+        
+        <div class="werke-grid">
+            <?php while ($werk_query->have_posts()) : $werk_query->the_post(); ?>
+                
+                <article id="post-<?php the_ID(); ?>" <?php post_class('werk-item'); ?>>
+                    
+                    <a href="<?php the_permalink(); ?>" class="werk-link">
+                        
+                        <?php if (has_post_thumbnail()) : ?>
+                            <div class="werk-thumbnail">
+                                <?php 
+                                the_post_thumbnail('medium_large', [
+                                    'loading' => 'lazy',
+                                    'alt' => get_the_title()
+                                ]); 
+                                ?>
+                                <div class="werk-thumbnail-overlay">
+                                    <span class="werk-cta-btn"><?php echo $is_en ? '🎨 View Artwork' : '🎨 Werk ansehen'; ?></span>
+                                </div>
+                            </div>
+                        <?php else : ?>
+                            <div class="werk-thumbnail werk-thumbnail-placeholder">
+                                <span class="dashicons dashicons-format-image"></span>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <div class="werk-content">
+                            <h2 class="werk-title"><?php the_title(); ?></h2>
+                            
+                            <?php
+                            // Meta-Informationen
+                            $year = get_post_meta(get_the_ID(), '_werk_year', true);
+                            $dimensions = get_post_meta(get_the_ID(), '_werk_dimensions', true);
+                            $materials = get_post_meta(get_the_ID(), '_werk_materials', true);
+                            $represented = get_post_meta(get_the_ID(), '_werk_represented', true);
+                            $exhibited = get_post_meta(get_the_ID(), '_werk_exhibited', true);
+                            
+                            if ($year || $dimensions || $materials || $represented || $exhibited) :
+                                ?>
+                                <div class="werk-meta">
+                                    <?php if ($year) : ?>
+                                        <span class="werk-year"><?php echo esc_html($year); ?></span>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($dimensions) : ?>
+                                        <span class="werk-dimensions"><?php echo esc_html($dimensions); ?></span>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($materials) : ?>
+                                        <span class="werk-materials"><?php echo esc_html($materials); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if ($represented) : ?>
+                                    <div class="werk-meta-status">
+                                        <span class="werk-represented-badge">
+                                            👑 <?php echo $is_en ? 'Represented by ' : 'Vertreten durch '; ?><?php echo esc_html($represented); ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($exhibited) : ?>
+                                    <div class="werk-meta-status">
+                                        <span class="werk-exhibited-badge">
+                                            🏛️ <?php echo $is_en ? 'Exhibited at ' : 'Ausgestellt bei '; ?><?php echo esc_html($exhibited); ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            
+                            <?php
+                            // Serie anzeigen (falls taxonomy 'serie' existiert)
+                            $series = get_the_terms(get_the_ID(), 'serie');
+                            if ($series && !is_wp_error($series)) :
+                                ?>
+                                <div class="werk-series">
+                                    <?php foreach ($series as $serie) : ?>
+                                        <span class="werk-serie-badge"><?php echo esc_html($serie->name); ?></span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                    </a>
+                    
+                </article>
+                
+            <?php endwhile; ?>
+        </div>
+
+        <?php
+        // Pagination zurückstellen
+        $wp_query = $temp_wp_query;
+        wp_reset_postdata();
+        
+        // Pagination anzeigen
+        echo '<div class="pagination">';
+        echo paginate_links([
+            'mid_size'           => 2,
+            'prev_text'          => $is_en ? '&laquo; Prev' : __('&laquo; Zurück', 'micinterart'),
+            'next_text'          => $is_en ? 'Next &raquo;' : __('Weiter &raquo;', 'micinterart'),
+            'screen_reader_text' => $is_en ? 'Artworks Navigation' : __('Werke Navigation', 'micinterart'),
+        ]);
+        echo '</div>';
+        
+    <?php else : ?>
+        
+        <div class="no-results">
+            <p><?php echo $is_en ? 'No artworks found.' : esc_html__('Keine Werke gefunden.', 'micinterart'); ?></p>
+        </div>
+        
+    <?php endif; wp_reset_query(); ?>
+
+</main>
+
+<?php
+// CSS aus der Originaldatei extrahieren
+require_once get_stylesheet_directory() . '/archive-werk-styles.php';
+
+get_footer();

@@ -97,14 +97,24 @@ function micinterart_load_workshop_wc_includes() {
     // Workshop WooCommerce Plugin (Produktfelder und Kategorien)
     require_once get_stylesheet_directory() . '/micinterart-workshop-woocommerce.php';
     
-    // Initialisiere Workshop-WC sofort (nicht erst bei Priority 11)
+    // Initialisiere Workshop-WC sofort
     if (class_exists('Micinterart_Workshop_WooCommerce')) {
         Micinterart_Workshop_WooCommerce::get_instance();
+    }
+    
+    // Werk WooCommerce Plugin
+    require_once get_stylesheet_directory() . '/micinterart-werk-woocommerce.php';
+    
+    // Initialisiere Werk-WC sofort
+    if (class_exists('Micinterart_Werk_WooCommerce')) {
+        Micinterart_Werk_WooCommerce::get_instance();
     }
     
     // Workshop Migration (nur im Admin)
     if (is_admin()) {
         require_once get_stylesheet_directory() . '/includes/workshop-migration.php';
+        // Werk Migration
+        require_once get_stylesheet_directory() . '/includes/werk-migration.php';
     }
     
     // Workshop Checkout Anpassungen (Teilnehmerfelder, Rabatte)
@@ -350,6 +360,20 @@ function micinterart_workshop_archive_template($template) {
 add_filter('archive_template', 'micinterart_workshop_archive_template');
 
 /**
+ * Werk-Archiv: Zeige WC-Produkte statt altem CPT
+ */
+function micinterart_werk_archive_template($template) {
+    if (is_post_type_archive('werk')) {
+        $new_template = locate_template('archive-werk-wc.php');
+        if ($new_template) {
+            return $new_template;
+        }
+    }
+    return $template;
+}
+add_filter('archive_template', 'micinterart_werk_archive_template', 25);
+
+/**
  * WC-Produkt-Templates: Verwende angepasste Workshop-Templates für WC-Produkte
  */
 function micinterart_wc_product_templates($template) {
@@ -398,6 +422,37 @@ function micinterart_wc_product_cat_archive_template($template) {
     return $template;
 }
 add_filter('taxonomy_template', 'micinterart_wc_product_cat_archive_template');
+
+/**
+ * Werk-Einzelseite: Leite zum WC-Produkt um (nach Migration)
+ */
+function micinterart_werk_single_template($template) {
+    if (is_singular('werk')) {
+        // Prüfen ob Migration abgeschlossen
+        $migration_done = get_option('micinterart_werk_migration_done', false);
+        
+        if ($migration_done) {
+            $migration_map = get_option('micinterart_werk_migration_map', []);
+            $werk_id = get_the_ID();
+            
+            if (isset($migration_map[$werk_id])) {
+                $product_url = get_permalink($migration_map[$werk_id]);
+                if ($product_url) {
+                    wp_redirect($product_url, 301);
+                    exit;
+                }
+            }
+        }
+        
+        // Ansonsten altes Template laden
+        $new_template = locate_template('single-werk.php');
+        if ($new_template) {
+            return $new_template;
+        }
+    }
+    return $template;
+}
+add_filter('single_template', 'micinterart_werk_single_template', 20);
 
 // ============================================================================
 // 10. WOOCMOMERCE SPEZIFISCHE ANPASSUNGEN
