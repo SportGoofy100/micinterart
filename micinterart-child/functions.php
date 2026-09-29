@@ -113,7 +113,7 @@ function micinterart_load_workshop_wc_includes() {
     // 301-Weiterleitungen von alten URLs
     require_once get_stylesheet_directory() . '/includes/workshop-redirects.php';
 }
-add_action('plugins_loaded', 'micinterart_load_workshop_wc_includes', 9);
+add_action('after_setup_theme', 'micinterart_load_workshop_wc_includes', 20);
 
 // ============================================================================
 // 4B. MANUELLER MIGRATION-TRIGGER (für Debug/Fallback)

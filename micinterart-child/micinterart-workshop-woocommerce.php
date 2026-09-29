@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 
 // Prüfen ob WooCommerce aktiv ist
 if (!class_exists('WooCommerce')) {
-    exit;
+    return;
 }
 
 /**
@@ -32,11 +32,10 @@ if (!class_exists('WooCommerce')) {
 class WC_Product_Workshop extends WC_Product_Simple {
     
     /**
-     * Konstrukt: Setzt den Produkttyp auf 'workshop'
+     * Überschreibt den Produkttyp
      */
-    public function __construct($product) {
-        $this->product_type = 'workshop';
-        parent::__construct($product);
+    public function get_type() {
+        return 'workshop';
     }
     
     /**
@@ -107,14 +106,11 @@ class Micinterart_Workshop_WooCommerce {
     }
     
     private function init_hooks() {
-        // Produkttyp registrieren (für Admin-Dropdown) - im Admin-Bereich
-        add_action('admin_init', function() {
-            add_filter('woocommerce_product_type_selector', [$this, 'add_workshop_product_type']);
-            add_filter('woocommerce_product_type_options', [$this, 'add_workshop_product_type']);
-        });
+        // Produkttyp registrieren
+        add_filter('product_type_selector', [$this, 'add_workshop_product_type']);
         
         // Produktklasse für Workshop-Typ registrieren
-        add_filter('woocommerce_product_class', [$this, 'add_workshop_product_class'], 10, 4);
+        add_filter('woocommerce_product_class', [$this, 'add_workshop_product_class'], 10, 2);
         
         // Felder registrieren
         add_action('init', [$this, 'register_workshop_product_fields']);
@@ -142,7 +138,7 @@ class Micinterart_Workshop_WooCommerce {
     /**
      * Registriert die WC_Product_Workshop Klasse für den Produkttyp 'workshop'
      */
-    public function add_workshop_product_class($classname, $product_type, $product_id, $product) {
+    public function add_workshop_product_class($classname, $product_type) {
         if ($product_type === 'workshop') {
             $classname = 'WC_Product_Workshop';
         }
