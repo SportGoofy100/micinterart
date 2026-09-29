@@ -120,6 +120,10 @@ class Micinterart_Workshop_WooCommerce {
         add_action('woocommerce_product_data_panels', [$this, 'render_workshop_product_tab']);
         add_action('woocommerce_process_product_meta', [$this, 'save_workshop_product_fields']);
         
+        // Standard-Felder für Workshop-Produkte ausblenden
+        add_filter('woocommerce_product_options_general_product_data', [$this, 'hide_standard_fields_for_workshop']);
+        add_filter('woocommerce_product_options_shipping', [$this, 'hide_shipping_fields_for_workshop']);
+        
         // Workshop-spezifische Validierung
         add_filter('woocommerce_product_is_purchasable', [$this, 'workshop_product_is_purchasable'], 10, 2);
         
@@ -143,6 +147,52 @@ class Micinterart_Workshop_WooCommerce {
             $classname = 'WC_Product_Workshop';
         }
         return $classname;
+    }
+    
+    /**
+     * Blendet nicht relevante Standard-Felder für Workshop-Produkte aus
+     */
+    public function hide_standard_fields_for_workshop($options) {
+        global $post;
+        
+        if (!isset($post->ID)) {
+            return $options;
+        }
+        
+        $product = wc_get_product($post->ID);
+        if ($product && $product->get_type() === 'workshop') {
+            // Felder ausblenden, die nicht für Workshops relevant sind
+            $fields_to_hide = [
+                'virtual',
+                'downloadable',
+                'sold_individually',
+            ];
+            
+            foreach ($fields_to_hide as $field) {
+                unset($options[$field]);
+            }
+        }
+        
+        return $options;
+    }
+    
+    /**
+     * Blendet Versand-Felder für Workshop-Produkte aus
+     */
+    public function hide_shipping_fields_for_workshop($options) {
+        global $post;
+        
+        if (!isset($post->ID)) {
+            return $options;
+        }
+        
+        $product = wc_get_product($post->ID);
+        if ($product && $product->get_type() === 'workshop') {
+            // Versandklasse und Gewicht ausblenden
+            unset($options['product_shipping_class']);
+        }
+        
+        return $options;
     }
     
     /**
