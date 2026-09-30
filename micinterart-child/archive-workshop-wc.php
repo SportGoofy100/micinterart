@@ -470,20 +470,31 @@ $kinder_upcoming = [];
 $erwachsenen_upcoming = [];
 $archiv_workshops = [];
 
+$workshop_product_tax_query = [
+    'relation' => 'OR',
+    [
+        'taxonomy' => 'product_type',
+        'field' => 'slug',
+        'terms' => 'workshop',
+    ],
+];
+
 if ($workshops_term) {
+    $workshop_product_tax_query[] = [
+        'taxonomy' => 'product_cat',
+        'field' => 'term_id',
+        'terms' => $workshops_term->term_id,
+        'include_children' => true,
+    ];
+}
+
+if (!empty($workshop_product_tax_query)) {
     // Alle Workshops holen (upcoming)
     $args_upcoming = [
         'post_type' => 'product',
         'posts_per_page' => -1,
         'post_status' => 'publish',
-        'tax_query' => [
-            [
-                'taxonomy' => 'product_cat',
-                'field' => 'term_id',
-                'terms' => $workshops_term->term_id,
-                'include_children' => true,
-            ],
-        ],
+        'tax_query' => $workshop_product_tax_query,
         'meta_query' => [
             'relation' => 'OR',
             [ 'key' => '_workshop_datum', 'value' => $heute, 'compare' => '>=', 'type' => 'DATE' ],
@@ -548,14 +559,7 @@ if ($workshops_term) {
         'post_type' => 'product',
         'posts_per_page' => -1,
         'post_status' => 'publish',
-        'tax_query' => [
-            [
-                'taxonomy' => 'product_cat',
-                'field' => 'term_id',
-                'terms' => $workshops_term->term_id,
-                'include_children' => true,
-            ],
-        ],
+        'tax_query' => $workshop_product_tax_query,
         'meta_query' => [
             [ 'key' => '_workshop_datum', 'value' => $heute, 'compare' => '<', 'type' => 'DATE' ],
         ],
