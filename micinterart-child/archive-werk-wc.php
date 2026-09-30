@@ -34,10 +34,14 @@ if ($werk_query->have_posts()) {
 get_header();
 $is_en = micinterart_is_english();
 
+$archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.php';
+
 ?>
 
 <style>
-<?php readfile(get_stylesheet_directory() . '/archive-werk-styles.php'); ?>
+<?php if (file_exists($archive_werk_styles_file)) {
+    readfile($archive_werk_styles_file);
+} ?>
 </style>
 
 <main id="primary" class="site-main werke-archive">
@@ -166,7 +170,4 @@ $is_en = micinterart_is_english();
 </main>
 
 <?php
-// CSS aus der Originaldatei extrahieren
-require_once get_stylesheet_directory() . '/archive-werk-styles.php';
-
 get_footer();

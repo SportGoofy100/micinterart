@@ -246,11 +246,11 @@ class Micinterart_Werk_Migration {
     }
 }
 
-// Manuelle Migration
-add_action('admin_init', ['Micinterart_Werk_Migration', 'maybe_run_migration'], 100);
-
 /**
  * Migration-Trigger URL: /wp-admin/?micinterart_migrate_werke=1
- * Für Test: /wp-admin/?micinterart_migrate_werke=1&dry_run=0
+ * Für Test: /wp-admin/?micinterart_migrate_werke=1&dry_run=1
  * Für echte Migration: /wp-admin/?micinterart_migrate_werke=1&dry_run=0&nonce=...
+ * 
+ * HINWEIS: Der Hook wird in functions.php registriert, nicht hier.
+ * Das ermöglicht eine bessere Kontrolle über das Laden der Datei.
  */

@@ -117,6 +117,16 @@ class Micinterart_Werk_WooCommerce {
      * Registriert benutzerdefinierte Felder für Werk-Produkte
      */
     public function register_werk_product_fields() {
+        // Auth-Callback Funktion (wird für alle Felder verwendet)
+        $auth_callback = function() {
+            // Im REST-Kontext
+            if (defined('REST_REQUEST') && REST_REQUEST) {
+                return current_user_can('edit_posts');
+            }
+            // Im Admin-Kontext
+            return current_user_can('edit_posts');
+        };
+        
         $fields = [
             '_werk_materials',
             '_werk_dimensions',
@@ -131,19 +141,25 @@ class Micinterart_Werk_WooCommerce {
                 'type' => 'string',
                 'single' => true,
                 'show_in_rest' => true,
-                'auth_callback' => function() {
-                    return current_user_can('edit_posts');
-                }
+                'auth_callback' => $auth_callback
             ]);
         }
         
-        // Mehrere Bilder als serialisiertes Array
+        // Mehrere Bilder als serialisiertes Array (gespeichert als string, aber Array beim Speichern)
         register_post_meta('product', '_werk_additional_images', [
             'type' => 'string',
             'single' => true,
             'show_in_rest' => true,
-            'auth_callback' => function() {
-                return current_user_can('edit_posts');
+            'auth_callback' => $auth_callback,
+            'sanitize_callback' => function($value) {
+                // Akzeptiert sowohl String als auch Array
+                if (is_array($value)) {
+                    return implode(',', array_map('intval', $value));
+                }
+                if (is_string($value)) {
+                    return sanitize_text_field($value);
+                }
+                return '';
             }
         ]);
     }
@@ -162,13 +178,20 @@ class Micinterart_Werk_WooCommerce {
         
         // Allgemein-Tab für Werke sichtbar lassen
         if (isset($tabs['general'])) {
-            $tabs['general']['class'][] = 'show_if_werk';
+            // Vermeide doppelte Klassen
+            if (!in_array('show_if_werk', $tabs['general']['class'])) {
+                $tabs['general']['class'][] = 'show_if_werk';
+            }
         }
         
         // Für Werke irrelevante Tabs ausblenden
-        foreach (['shipping', 'linked_product', 'attribute', 'inventory'] as $key) {
+        $tabs_to_hide = ['shipping', 'linked_product', 'attribute', 'inventory', 'advanced'];
+        foreach ($tabs_to_hide as $key) {
             if (isset($tabs[$key])) {
-                $tabs[$key]['class'][] = 'hide_if_werk';
+                // Vermeide doppelte Klassen
+                if (!in_array('hide_if_werk', $tabs[$key]['class'])) {
+                    $tabs[$key]['class'][] = 'hide_if_werk';
+                }
             }
         }
         
@@ -206,8 +229,18 @@ class Micinterart_Werk_WooCommerce {
      * Blendet Preis-/Versandfelder aus und zeigt Steuerfelder für den Typ 'werk'
      */
     public function output_admin_type_toggle_js() {
-        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        // Nur auf der Produkt-Bearbeitungsseite
+        if (!function_exists('get_current_screen')) {
+            return;
+        }
+        
+        $screen = get_current_screen();
         if (!$screen || $screen->id !== 'product') {
+            return;
+        }
+        
+        // Nur ausführen wenn jQuery verfügbar ist
+        if (!wp_script_is('jquery', 'done')) {
             return;
         }
         ?>
@@ -259,6 +292,13 @@ class Micinterart_Werk_WooCommerce {
         $exhibited = get_post_meta($product_id, '_werk_exhibited', true);
         $status = get_post_meta($product_id, '_werk_status', true);
         $additional_images = get_post_meta($product_id, '_werk_additional_images', true);
+        
+        // Konvertiere Array zu comma-separiertem String für das Textarea-Feld
+        if (is_array($additional_images)) {
+            $additional_images = implode(',', array_map('intval', $additional_images));
+        } elseif (!is_string($additional_images)) {
+            $additional_images = '';
+        }
         
         echo '<div id="werk_product_data" class="panel woocommerce_options_panel hidden">';
         
@@ -341,6 +381,11 @@ class Micinterart_Werk_WooCommerce {
             return;
         }
         
+        // Verifizierung des Nonce-Felds
+        if (!isset($_POST['woocommerce_meta_nonce']) || !wp_verify_nonce($_POST['woocommerce_meta_nonce'], 'woocommerce_save_data')) {
+            return;
+        }
+        
         $fields = [
             '_werk_year',
             '_werk_dimensions',
@@ -353,15 +398,20 @@ class Micinterart_Werk_WooCommerce {
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
                 update_post_meta($post_id, $field, sanitize_text_field($_POST[$field]));
+            } else {
+                // Feld löschen wenn nicht mehr vorhanden
+                delete_post_meta($post_id, $field);
             }
         }
         
         // Weitere Bilder (Textarea mit comma-separierten IDs)
         if (isset($_POST['_werk_additional_images'])) {
             $images = sanitize_text_field($_POST['_werk_additional_images']);
-            // Array speichern
+            // Als comma-separierten String speichern
             $image_ids = array_map('intval', array_filter(explode(',', $images)));
-            update_post_meta($post_id, '_werk_additional_images', $image_ids);
+            update_post_meta($post_id, '_werk_additional_images', implode(',', $image_ids));
+        } else {
+            delete_post_meta($post_id, '_werk_additional_images');
         }
     }
 }
@@ -370,7 +420,7 @@ class Micinterart_Werk_WooCommerce {
 function micinterart_werk_wc_init() {
     Micinterart_Werk_WooCommerce::get_instance();
 }
-add_action('after_setup_theme', 'micinterart_werk_wc_init', 20);
+add_action('after_setup_theme', 'micinterart_werk_wc_init', 25);
 
 // Hilfsfunktion zum Prüfen ob ein Produkt ein Werk ist
 function micinterart_wc_is_werk_product($product) {

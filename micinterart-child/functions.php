@@ -13,7 +13,10 @@
 // 1. THEME-GRUNDLAGEN
 //    Theme-Setup, Assets, Performance-Optimierungen, Cache
 // ============================================================================
-require_once get_stylesheet_directory() . '/includes/theme-setup.php';
+$theme_setup_file = get_stylesheet_directory() . '/includes/theme-setup.php';
+if (file_exists($theme_setup_file)) {
+    require_once $theme_setup_file;
+}
 
 /**
  * Minimale Sprachhilfe für Polylang/Englisch-Fallback.
@@ -71,7 +74,10 @@ function micinterart_get_translated_meta($post_id, $meta_key, $single = true) {
 // 2. WERK CPT – ADMIN
 //    Custom Columns, Sortierung, Gedicht-Excerpt
 // ============================================================================
-require_once get_stylesheet_directory() . '/includes/werk-admin.php';
+$werk_admin_file = get_stylesheet_directory() . '/includes/werk-admin.php';
+if (file_exists($werk_admin_file)) {
+    require_once $werk_admin_file;
+}
 
 // ============================================================================
 // 3. GEDICHT CPT – ADMIN & FRONTEND
@@ -95,33 +101,45 @@ function micinterart_load_workshop_wc_includes() {
     }
     
     // Workshop WooCommerce Plugin (Produktfelder und Kategorien)
-    require_once get_stylesheet_directory() . '/micinterart-workshop-woocommerce.php';
-    
-    // Initialisiere Workshop-WC sofort
-    if (class_exists('Micinterart_Workshop_WooCommerce')) {
-        Micinterart_Workshop_WooCommerce::get_instance();
+    $workshop_wc_file = get_stylesheet_directory() . '/micinterart-workshop-woocommerce.php';
+    if (file_exists($workshop_wc_file)) {
+        require_once $workshop_wc_file;
+        // Initialisiere Workshop-WC sofort
+        if (class_exists('Micinterart_Workshop_WooCommerce')) {
+            Micinterart_Workshop_WooCommerce::get_instance();
+        }
     }
     
-    // Werk WooCommerce Plugin
-    require_once get_stylesheet_directory() . '/micinterart-werk-woocommerce.php';
-    
-    // Initialisiere Werk-WC sofort
-    if (class_exists('Micinterart_Werk_WooCommerce')) {
-        Micinterart_Werk_WooCommerce::get_instance();
+    // Werk WooCommerce Plugin (wird über eigenen Hook initialisiert)
+    $werk_wc_file = get_stylesheet_directory() . '/micinterart-werk-woocommerce.php';
+    if (file_exists($werk_wc_file)) {
+        require_once $werk_wc_file;
     }
     
     // Workshop Migration (nur im Admin)
     if (is_admin()) {
-        require_once get_stylesheet_directory() . '/includes/workshop-migration.php';
+        $workshop_migration_file = get_stylesheet_directory() . '/includes/workshop-migration.php';
+        if (file_exists($workshop_migration_file)) {
+            require_once $workshop_migration_file;
+        }
         // Werk Migration
-        require_once get_stylesheet_directory() . '/includes/werk-migration.php';
+        $werk_migration_file = get_stylesheet_directory() . '/includes/werk-migration.php';
+        if (file_exists($werk_migration_file)) {
+            require_once $werk_migration_file;
+        }
     }
     
     // Workshop Checkout Anpassungen (Teilnehmerfelder, Rabatte)
-    require_once get_stylesheet_directory() . '/includes/workshop-checkout.php';
+    $workshop_checkout_file = get_stylesheet_directory() . '/includes/workshop-checkout.php';
+    if (file_exists($workshop_checkout_file)) {
+        require_once $workshop_checkout_file;
+    }
     
     // 301-Weiterleitungen von alten URLs
-    require_once get_stylesheet_directory() . '/includes/workshop-redirects.php';
+    $workshop_redirects_file = get_stylesheet_directory() . '/includes/workshop-redirects.php';
+    if (file_exists($workshop_redirects_file)) {
+        require_once $workshop_redirects_file;
+    }
 }
 add_action('after_setup_theme', 'micinterart_load_workshop_wc_includes', 20);
 
@@ -156,7 +174,10 @@ function micinterart_workshop_migration_trigger() {
     if (isset($_GET['micinterart_run_migration']) && $_GET['micinterart_run_migration'] === '1') {
         // Migration-Klasse laden falls noch nicht geschehen
         if (!class_exists('Micinterart_Workshop_Migration')) {
-            require_once get_stylesheet_directory() . '/includes/workshop-migration.php';
+            $workshop_migration_trigger_file = get_stylesheet_directory() . '/includes/workshop-migration.php';
+            if (file_exists($workshop_migration_trigger_file)) {
+                require_once $workshop_migration_trigger_file;
+            }
         }
         
         // Instanz erstellen und Migration ausführen
@@ -211,7 +232,10 @@ add_action('admin_init', 'micinterart_workshop_migration_trigger', 50);
 // 5. WORKSHOP – FRONTEND-ANZEIGE (ANGEPASST)
 //    "Was dich erwartet"-Box für WC-Produkte
 // ============================================================================
-require_once get_stylesheet_directory() . '/includes/workshop-frontend.php';
+$workshop_frontend_file = get_stylesheet_directory() . '/includes/workshop-frontend.php';
+if (file_exists($workshop_frontend_file)) {
+    require_once $workshop_frontend_file;
+}
 
 // ============================================================================
 // 6. WORKSHOP – ARCHIV & EINZELSEITE (NEUE TEMPLATES)
