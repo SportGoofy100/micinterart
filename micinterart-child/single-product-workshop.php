@@ -597,9 +597,12 @@ wp_reset_postdata();
                 </div>
             </header>
 
-            <?php if (has_post_thumbnail()) : ?>
+            <?php if ($product->get_image_id()) : ?>
                 <div class="workshop-featured-image">
-                    <?php the_post_thumbnail('large'); ?>
+                    <?php echo wp_get_attachment_image($product->get_image_id(), 'large', false, [
+                        'alt' => get_the_title($product_id),
+                        'loading' => 'lazy',
+                    ]); ?>
                 </div>
             <?php endif; ?>
 
