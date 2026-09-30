@@ -184,7 +184,36 @@ if ($adresse) {
 $status_class = 'status-' . $status;
 
 // Weitere Workshops für die Box
-$related_workshops = $this->get_related_workshops($product_id, $is_kinderworkshop);
+$related_workshops_query = new WP_Query([
+    'post_type' => 'product',
+    'post_status' => 'publish',
+    'posts_per_page' => 3,
+    'post__not_in' => [$product_id],
+    'tax_query' => [[
+        'taxonomy' => 'product_type',
+        'field' => 'slug',
+        'terms' => 'workshop',
+    ]],
+    'meta_query' => [
+        'relation' => 'OR',
+        [ 'key' => '_workshop_datum', 'value' => date('Y-m-d'), 'compare' => '>=', 'type' => 'DATE' ],
+        [ 'key' => '_workshop_datum', 'compare' => 'NOT EXISTS' ],
+        [ 'key' => '_workshop_datum', 'value' => '', 'compare' => '=' ],
+    ],
+    'meta_key' => '_workshop_datum',
+    'orderby' => 'meta_value',
+    'order' => 'ASC',
+]);
+$related_workshops = [];
+
+while ($related_workshops_query->have_posts()) {
+    $related_workshops_query->the_post();
+    $related_workshops[] = [
+        'id' => get_the_ID(),
+        'title' => get_the_title(),
+    ];
+}
+wp_reset_postdata();
 
 ?>
 
