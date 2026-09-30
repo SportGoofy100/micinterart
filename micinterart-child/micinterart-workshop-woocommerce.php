@@ -127,7 +127,7 @@ class Micinterart_Workshop_WooCommerce {
         // Reiter und Panels für Workshop-Produkte
         add_filter('woocommerce_product_data_tabs', [$this, 'add_workshop_product_tab']);
         add_action('woocommerce_product_data_panels', [$this, 'render_workshop_product_tab']);
-        add_action('woocommerce_process_product_meta', [$this, 'save_workshop_product_fields']);
+        add_action('woocommerce_admin_process_product_object', [$this, 'save_workshop_product_fields']);
         
         // Standard-Felder (Versand, Lager, Preisfelder ...) per JS/Klassen ausblenden
         add_action('admin_footer', [$this, 'output_admin_type_toggle_js']);
@@ -505,12 +505,12 @@ class Micinterart_Workshop_WooCommerce {
     /**
      * Speichert die Workshop-Felder
      */
-    public function save_workshop_product_fields($post_id) {
-        // Nur für Workshop-Produkte
-        $product = wc_get_product($post_id);
-        if (!$product || $product->get_type() !== 'workshop') {
+    public function save_workshop_product_fields($product) {
+        if (!is_a($product, 'WC_Product') || $product->get_type() !== 'workshop') {
             return;
         }
+
+        $post_id = $product->get_id();
         
         $fields = [
             '_workshop_datum',
@@ -532,20 +532,21 @@ class Micinterart_Workshop_WooCommerce {
         
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
-                $value = sanitize_text_field($_POST[$field]);
+                $posted_value = wp_unslash($_POST[$field]);
+                $value = sanitize_text_field($posted_value);
                 // Für numerische Felder
                 if (in_array($field, ['_workshop_dauer_stunden', '_workshop_max_teilnehmer', '_workshop_current_bookings'])) {
-                    $value = is_numeric($_POST[$field]) ? absint($_POST[$field]) : '';
+                    $value = is_numeric($posted_value) ? absint($posted_value) : '';
                 }
-                update_post_meta($post_id, $field, $value);
+                $product->update_meta_data($field, $value);
             }
         }
         
         // Checkbox für Paarpreis
         if (isset($_POST['_workshop_is_paar_preis'])) {
-            update_post_meta($post_id, '_workshop_is_paar_preis', 'yes');
+            $product->update_meta_data('_workshop_is_paar_preis', 'yes');
         } else {
-            delete_post_meta($post_id, '_workshop_is_paar_preis');
+            $product->delete_meta_data('_workshop_is_paar_preis');
         }
         
         // "Was dich erwartet" Felder
@@ -553,34 +554,28 @@ class Micinterart_Workshop_WooCommerce {
             foreach (['emoji', 'titel', 'text'] as $part) {
                 $field_name = "_workshop_erwartet_{$i}_{$part}";
                 if (isset($_POST[$field_name])) {
-                    update_post_meta($post_id, $field_name, sanitize_text_field($_POST[$field_name]));
+                    $product->update_meta_data($field_name, sanitize_text_field(wp_unslash($_POST[$field_name])));
                 }
             }
         }
-        
-        $product_needs_save = false;
 
         // WooCommerce-Preis aus _workshop_preis übernehmen (Warenkorb nutzt _price)
         if (isset($_POST['_workshop_preis']) && $_POST['_workshop_preis'] !== '') {
             $wc_preis = wc_format_decimal(wp_unslash($_POST['_workshop_preis']));
             $product->set_regular_price($wc_preis);
             $product->set_virtual(true);
-            $product_needs_save = true;
         }
 
         // Synchronisiere max_teilnehmer mit Lagerbestand
         if (isset($_POST['_workshop_max_teilnehmer']) && !empty($_POST['_workshop_max_teilnehmer'])) {
-            $max_teilnehmer = (int)$_POST['_workshop_max_teilnehmer'];
-            $current_bookings = (int)(isset($_POST['_workshop_current_bookings']) ? $_POST['_workshop_current_bookings'] : 0);
+            $max_teilnehmer = absint(wp_unslash($_POST['_workshop_max_teilnehmer']));
+            $current_bookings = isset($_POST['_workshop_current_bookings'])
+                ? absint(wp_unslash($_POST['_workshop_current_bookings']))
+                : absint($product->get_meta('_workshop_current_bookings', true));
             $stock_quantity = max(0, $max_teilnehmer - $current_bookings);
-            
+
             $product->set_manage_stock(true);
             $product->set_stock_quantity($stock_quantity);
-            $product_needs_save = true;
-        }
-
-        if ($product_needs_save) {
-            $product->save();
         }
     }
     
