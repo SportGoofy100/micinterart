@@ -753,34 +753,31 @@ wp_reset_postdata();
                         </p>
                         
                         <div class="workshop-anmeldung-buttons">
-                            <?php
-                            // Add to cart form
-                            do_action('woocommerce_before_add_to_cart_form');
+                            <?php if ($product->is_purchasable() && $product->is_in_stock()) : ?>
+                                <?php do_action('woocommerce_before_add_to_cart_form'); ?>
+                                <form class="cart" action="<?php echo esc_url(apply_filters('woocommerce_add_to_cart_form_action', $product->get_permalink())); ?>" method="post" enctype="multipart/form-data">
+                                    <?php do_action('woocommerce_before_add_to_cart_button'); ?>
+                                    <?php woocommerce_quantity_input([
+                                        'min_value' => 1,
+                                        'max_value' => $stock_quantity > 0 ? $stock_quantity : 1,
+                                        'step' => 1,
+                                        'input_value' => 1,
+                                    ]); ?>
+                                    <button type="submit" name="add-to-cart" value="<?php echo esc_attr($product_id); ?>" class="single_add_to_cart_button button alt workshop-anmeldung-button">
+                                        🛒 <?php echo $is_en ? 'Add to cart' : 'In den Warenkorb'; ?>
+                                    </button>
+                                    <?php do_action('woocommerce_after_add_to_cart_button'); ?>
+                                </form>
+                                <?php do_action('woocommerce_after_add_to_cart_form'); ?>
+                            <?php else : ?>
+                                <button type="button" class="workshop-anmeldung-button" style="opacity: 0.7; cursor: not-allowed;">
+                                <?php echo $is_en ? 'Not available' : 'Nicht verfügbar'; ?>
+                                </button>
+                            <?php endif; ?>
                             
-                            if ($product->is_purchasable() && $product->is_in_stock()) {
-                                woocommerce_quantity_input([
-                                    'min_value' => 1,
-                                    'max_value' => $stock_quantity > 0 ? $stock_quantity : 1,
-                                    'step' => 1,
-                                    'input_value' => 1,
-                                ]);
-                                
-                                echo '<button type="submit" name="add-to-cart" value="' . esc_attr($product_id) . '" class="workshop-anmeldung-button">';
-                                echo '🛒 ' . ($is_en ? 'Add to cart' : 'In den Warenkorb');
-                                echo '</button>';
-                            } else {
-                                echo '<button type="button" class="workshop-anmeldung-button" style="opacity: 0.7; cursor: not-allowed;">';
-                                echo $is_en ? 'Not available' : 'Nicht verfügbar';
-                                echo '</button>';
-                            }
-                            
-                            do_action('woocommerce_after_add_to_cart_form');
-                            
-                            // View cart button
-                            echo '<a href="' . esc_url(wc_get_cart_url()) . '" class="workshop-anmeldung-button" style="background: linear-gradient(135deg, #d4a574, #c4915e); border: none;">';
-                            echo '📋 ' . ($is_en ? 'View cart' : 'Zum Warenkorb');
-                            echo '</a>';
-                            ?>
+                            <a href="<?php echo esc_url(wc_get_cart_url()); ?>" class="workshop-anmeldung-button" style="background: linear-gradient(135deg, #d4a574, #c4915e); border: none;">
+                                📋 <?php echo $is_en ? 'View cart' : 'Zum Warenkorb'; ?>
+                            </a>
                         </div>
                         
                         <p style="margin-top: 20px; color: #666; font-size: 0.95em;">
