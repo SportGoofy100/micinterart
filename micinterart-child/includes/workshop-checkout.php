@@ -26,17 +26,14 @@ class Micinterart_Workshop_Checkout {
     }
     
     private function __construct() {
-        // Teilnehmerfelder zum Checkout hinzufügen
-        add_filter('woocommerce_checkout_fields', [$this, 'add_participant_fields']);
+        // Zusätzliche Teilnehmer pro Workshop-Position erfassen
+        add_action('woocommerce_after_order_notes', [$this, 'render_participant_fields']);
         
         // Validierung der Teilnehmerfelder
         add_action('woocommerce_checkout_process', [$this, 'validate_participant_fields']);
         
-        // Teilnehmerdaten in Bestellung speichern
-        add_action('woocommerce_checkout_update_order_meta', [$this, 'save_participant_data']);
-        
-        // Bestellmail mit Teilnehmerdaten erweitern
-        add_filter('woocommerce_email_order_meta_fields', [$this, 'add_participant_to_email']);
+        // Teilnehmerdaten an der jeweiligen Bestellposition speichern
+        add_action('woocommerce_checkout_create_order_line_item', [$this, 'save_participant_line_item'], 10, 4);
         
         // Geschwisterrabatt (10% Rabatt für jedes weitere Kind ab dem 2.)
         add_action('woocommerce_cart_calculate_fees', [$this, 'add_geschwister_discount']);
@@ -48,206 +45,107 @@ class Micinterart_Workshop_Checkout {
         add_action('wp_enqueue_scripts', [$this, 'enqueue_checkout_styles']);
     }
     
-    /**
-     * Fügt Teilnehmerfelder zum Checkout hinzu
-     */
-    public function add_participant_fields($fields) {
-        // Prüfen ob Workshop-Produkte im Warenkorb sind
-        $has_workshop = $this->cart_has_workshop();
-        
-        if (!$has_workshop) {
-            return $fields;
+    public function render_participant_fields($checkout) {
+        foreach ($this->get_workshop_cart_items() as $cart_item_key => $cart_item) {
+            $quantity = (int) $cart_item['quantity'];
+            if ($quantity <= 1) {
+                continue;
+            }
+
+            $product = $cart_item['data'];
+            $field_id = 'workshop-participants-' . sanitize_html_class($cart_item_key);
+            $field_name = 'workshop_participants[' . $cart_item_key . ']';
+            $value = implode("\n", $this->get_submitted_participant_names($cart_item_key));
+            $additional_count = $quantity - 1;
+
+            echo '<div class="workshop-participant-fields">';
+            echo '<h3>' . esc_html(sprintf(__('Teilnehmende für „%s“', 'micinterart'), $product->get_name())) . '</h3>';
+            echo '<p>' . esc_html(__('Du bist als Besteller automatisch als erste Person berücksichtigt. Bitte gib die Namen der weiteren Teilnehmenden jeweils in einer eigenen Zeile an.', 'micinterart')) . '</p>';
+            echo '<p class="form-row form-row-wide workshop-teilnehmer-names">';
+            echo '<label for="' . esc_attr($field_id) . '">' . esc_html(sprintf(_n('Name der weiteren teilnehmenden Person', 'Namen der %d weiteren teilnehmenden Personen', $additional_count, 'micinterart'), $additional_count)) . ' <span class="required">*</span></label>';
+            echo '<textarea id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" rows="' . esc_attr(max(2, $additional_count)) . '" required>' . esc_textarea($value) . '</textarea>';
+            echo '</p></div>';
         }
-        
-        // Teilnehmerfelder
-        $fields['billing']['workshop_participants'] = [
-            'type' => 'title',
-            'class' => ['form-row-wide', 'workshop-participants-title'],
-            'label' => __('Teilnehmerdaten', 'micinterart'),
-            'priority' => 220,
-        ];
-        
-        $fields['billing']['_workshop_teilnehmer_anzahl'] = [
-            'type' => 'number',
-            'class' => ['form-row-wide'],
-            'label' => __('Anzahl der Teilnehmer', 'micinterart'),
-            'required' => true,
-            'min' => 1,
-            'max' => 10,
-            'default' => 1,
-            'priority' => 230,
-            'description' => __('Wie viele Personen nehmen teil?', 'micinterart'),
-        ];
-        
-        // Teilnehmer-Details (dynamisch über JavaScript hinzugefügt)
-        // Hier nur Platzhalter für das erste Feld
-        $fields['billing']['_workshop_teilnehmer_names'] = [
-            'type' => 'text',
-            'class' => ['form-row-wide', 'workshop-teilnehmer-names'],
-            'label' => __('Namen der Teilnehmer (durch Komma getrennt)', 'micinterart'),
-            'required' => true,
-            'priority' => 240,
-            'description' => __('Beispiel: Max Mustermann, Anna Schmidt', 'micinterart'),
-        ];
-        
-        $fields['billing']['_workshop_teilnehmer_alter'] = [
-            'type' => 'text',
-            'class' => ['form-row-wide'],
-            'label' => __('Alter der Teilnehmer (durch Komma getrennt)', 'micinterart'),
-            'required' => false,
-            'priority' => 250,
-            'description' => __('Beispiel: 8, 10, 12', 'micinterart'),
-        ];
-        
-        $fields['billing']['_workshop_allergien'] = [
-            'type' => 'textarea',
-            'class' => ['form-row-wide'],
-            'label' => __('Allergien oder besondere Ernährungsbedürfnisse', 'micinterart'),
-            'required' => false,
-            'priority' => 260,
-            'description' => __('Bitte geben Sie an, falls Teilnehmer Allergien oder besondere Ernährungsbedürfnisse haben.', 'micinterart'),
-        ];
-        
-        $fields['billing']['_workshop_notizen'] = [
-            'type' => 'textarea',
-            'class' => ['form-row-wide'],
-            'label' => __('Bemerkungen', 'micinterart'),
-            'required' => false,
-            'priority' => 270,
-            'description' => __('Zusätzliche Informationen oder Wünsche.', 'micinterart'),
-        ];
-        
-        return $fields;
     }
-    
-    /**
-     * Validiert die Teilnehmerfelder
-     */
+
     public function validate_participant_fields() {
-        if (empty($_POST['_workshop_teilnehmer_anzahl']) && $this->cart_has_workshop()) {
-            wc_add_notice(__('Bitte geben Sie die Anzahl der Teilnehmer an.', 'micinterart'), 'error');
-        }
-        
-        if (empty($_POST['_workshop_teilnehmer_names']) && $this->cart_has_workshop()) {
-            wc_add_notice(__('Bitte geben Sie die Namen der Teilnehmer an.', 'micinterart'), 'error');
-        }
-        
-        // Validierung der Anzahl
-        $anzahl = isset($_POST['_workshop_teilnehmer_anzahl']) ? intval($_POST['_workshop_teilnehmer_anzahl']) : 0;
-        if ($anzahl <= 0 && $this->cart_has_workshop()) {
-            wc_add_notice(__('Die Anzahl der Teilnehmer muss mindestens 1 sein.', 'micinterart'), 'error');
-        }
-        
-        // Validierung der Namen
-        if (!empty($_POST['_workshop_teilnehmer_names']) && $this->cart_has_workshop()) {
-            $namen = sanitize_text_field($_POST['_workshop_teilnehmer_names']);
-            $namen_array = array_map('trim', explode(',', $namen));
-            
-            if (count($namen_array) !== $anzahl) {
-                wc_add_notice(sprintf(__('Sie haben %d Namen angegeben, aber %d Teilnehmer. Bitte korrigieren Sie dies.', 'micinterart'), count($namen_array), $anzahl), 'error');
+        foreach ($this->get_workshop_cart_items() as $cart_item_key => $cart_item) {
+            $quantity = (int) $cart_item['quantity'];
+            if ($quantity <= 1) {
+                continue;
+            }
+
+            $names = $this->get_submitted_participant_names($cart_item_key);
+            $required_names = $quantity - 1;
+
+            if (count($names) !== $required_names) {
+                wc_add_notice(
+                    sprintf(
+                        __('Bitte gib für „%1$s“ genau %2$d zusätzliche Namen an (jeweils eine Zeile).', 'micinterart'),
+                        $cart_item['data']->get_name(),
+                        $required_names
+                    ),
+                    'error'
+                );
             }
         }
     }
-    
-    /**
-     * Speichert Teilnehmerdaten in der Bestellung
-     */
-    public function save_participant_data($order_id) {
-        if (!empty($_POST['_workshop_teilnehmer_anzahl'])) {
-            update_post_meta($order_id, '_workshop_teilnehmer_anzahl', intval($_POST['_workshop_teilnehmer_anzahl']));
+
+    public function save_participant_line_item($item, $cart_item_key, $values, $order) {
+        $product = $values['data'] ?? null;
+        $quantity = isset($values['quantity']) ? (int) $values['quantity'] : 1;
+
+        if ($quantity <= 1 || !$this->is_workshop_product($product)) {
+            return;
         }
-        
-        if (!empty($_POST['_workshop_teilnehmer_names'])) {
-            update_post_meta($order_id, '_workshop_teilnehmer_names', sanitize_text_field($_POST['_workshop_teilnehmer_names']));
-        }
-        
-        if (!empty($_POST['_workshop_teilnehmer_alter'])) {
-            update_post_meta($order_id, '_workshop_teilnehmer_alter', sanitize_text_field($_POST['_workshop_teilnehmer_alter']));
-        }
-        
-        if (!empty($_POST['_workshop_allergien'])) {
-            update_post_meta($order_id, '_workshop_allergien', sanitize_textarea_field($_POST['_workshop_allergien']));
-        }
-        
-        if (!empty($_POST['_workshop_notizen'])) {
-            update_post_meta($order_id, '_workshop_notizen', sanitize_textarea_field($_POST['_workshop_notizen']));
+
+        $names = $this->get_submitted_participant_names($cart_item_key);
+        if (count($names) === $quantity - 1) {
+            $item->add_meta_data(__('Weitere Teilnehmende', 'micinterart'), implode("\n", $names), true);
         }
     }
-    
-    /**
-     * Fügt Teilnehmerdaten zur Bestellmail hinzu
-     */
-    public function add_participant_to_email($fields) {
-        $order_id = $fields['id'];
-        
-        $anzahl = get_post_meta($order_id, '_workshop_teilnehmer_anzahl', true);
-        $namen = get_post_meta($order_id, '_workshop_teilnehmer_names', true);
-        $alter = get_post_meta($order_id, '_workshop_teilnehmer_alter', true);
-        $allergien = get_post_meta($order_id, '_workshop_allergien', true);
-        $notizen = get_post_meta($order_id, '_workshop_notizen', true);
-        
-        if ($anzahl || $namen || $alter || $allergien || $notizen) {
-            $fields['teilnehmer'] = [
-                'label' => __('Teilnehmerdaten', 'micinterart'),
-                'value' => $this->format_participant_data($anzahl, $namen, $alter, $allergien, $notizen),
-            ];
+
+    private function get_submitted_participant_names($cart_item_key) {
+        $submitted_names = $_POST['workshop_participants'] ?? null;
+        if (!is_array($submitted_names) || !isset($submitted_names[$cart_item_key]) || !is_string($submitted_names[$cart_item_key])) {
+            return [];
         }
-        
-        return $fields;
-    }
-    
-    /**
-     * Formatiert Teilnehmerdaten für die E-Mail
-     */
-    private function format_participant_data($anzahl, $namen, $alter, $allergien, $notizen) {
-        $output = [];
-        
-        if ($anzahl) {
-            $output[] = 'Anzahl der Teilnehmer: ' . $anzahl;
-        }
-        
-        if ($namen) {
-            $output[] = 'Namen: ' . $namen;
-        }
-        
-        if ($alter) {
-            $output[] = 'Alter: ' . $alter;
-        }
-        
-        if ($allergien) {
-            $output[] = 'Allergien: ' . $allergien;
-        }
-        
-        if ($notizen) {
-            $output[] = 'Bemerkungen: ' . $notizen;
-        }
-        
-        return implode('\n', $output);
+
+        $value = sanitize_textarea_field(wp_unslash($submitted_names[$cart_item_key]));
+        $names = preg_split('/\\r\\n|\\r|\\n/', $value);
+
+        return array_values(array_filter(array_map('trim', $names), function($name) {
+            return $name !== '';
+        }));
     }
     
     /**
      * Prüft ob Workshop-Produkte im Warenkorb sind
      */
     private function cart_has_workshop() {
+        return !empty($this->get_workshop_cart_items());
+    }
+
+    private function get_workshop_cart_items() {
         if (!function_exists('WC')) {
-            return false;
+            return [];
         }
         
         $cart = WC()->cart;
         if (!$cart || $cart->is_empty()) {
-            return false;
+            return [];
         }
         
+        $workshop_items = [];
         foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-            $product_id = $cart_item['product_id'];
-            $product = wc_get_product($product_id);
+            $product = $cart_item['data'] ?? wc_get_product($cart_item['product_id'] ?? 0);
             
             if ($product && $this->is_workshop_product($product)) {
-                return true;
+                $workshop_items[$cart_item_key] = $cart_item;
             }
         }
         
-        return false;
+        return $workshop_items;
     }
     
     /**
@@ -256,6 +154,10 @@ class Micinterart_Workshop_Checkout {
     private function is_workshop_product($product) {
         if (!is_a($product, 'WC_Product')) {
             return false;
+        }
+
+        if ($product->get_type() === 'workshop') {
+            return true;
         }
         
         $product_id = $product->get_id();
@@ -399,45 +301,18 @@ class Micinterart_Workshop_Checkout {
         }
         
         $css = '
-            .workshop-participants-title {
-                font-size: 1.2em;
-                font-weight: 600;
+            .workshop-participant-fields {
                 margin-top: 20px;
-                padding-top: 20px;
-                border-top: 2px solid #ddd;
-                background: #f9f9f9;
-                padding: 15px 0;
-                text-align: center;
+                padding: 16px;
+                border: 1px solid #ddd;
             }
             
             .workshop-teilnehmer-names {
                 margin-bottom: 15px;
             }
             
-            .workshop-teilnehmer-names input,
             .workshop-teilnehmer-names textarea {
-                min-height: 45px;
-            }
-            
-            #_workshop_teilnehmer_anzahl_field label {
-                font-weight: 600;
-            }
-            
-            .workshop-participant-row {
-                display: flex;
-                gap: 15px;
-                margin-bottom: 15px;
-            }
-            
-            .workshop-participant-row .form-row {
-                flex: 1;
-            }
-            
-            @media (max-width: 768px) {
-                .workshop-participant-row {
-                    flex-direction: column;
-                    gap: 0;
-                }
+                width: 100%;
             }
         ';
         
@@ -451,35 +326,3 @@ function micinterart_workshop_checkout_init() {
 }
 
 add_action('woocommerce_loaded', 'micinterart_workshop_checkout_init');
-
-// JavaScript für dynamische Teilnehmerfelder
-function micinterart_workshop_checkout_js() {
-    if (!function_exists('is_checkout') || !is_checkout()) {
-        return;
-    }
-    
-    $js = '
-        jQuery(document).ready(function($) {
-            var participantRows = function() {
-                var anzahl = parseInt($("#_workshop_teilnehmer_anzahl").val()) || 1;
-                var namesContainer = $("#_workshop_teilnehmer_names").closest(".form-row");
-                
-                // Einfache Lösung: Nur Hinweistext anpassen
-                if (anzahl > 1) {
-                    $("#_workshop_teilnehmer_names").attr("placeholder", "Beispiel: Max Mustermann, Anna Schmidt, Peter Müller");
-                    $("#_workshop_teilnehmer_names").closest(".form-row").find("label").text("Namen aller " + anzahl + " Teilnehmer (durch Komma getrennt)");
-                } else {
-                    $("#_workshop_teilnehmer_names").attr("placeholder", "Beispiel: Max Mustermann");
-                    $("#_workshop_teilnehmer_names").closest(".form-row").find("label").text("Name des Teilnehmers");
-                }
-            };
-            
-            $("#_workshop_teilnehmer_anzahl").on("change", participantRows);
-            participantRows();
-        });
-    ';
-    
-    wp_add_inline_script('wc-checkout', $js);
-}
-
-add_action('wp_enqueue_scripts', 'micinterart_workshop_checkout_js');
