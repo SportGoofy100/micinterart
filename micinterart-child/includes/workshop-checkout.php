@@ -325,4 +325,8 @@ function micinterart_workshop_checkout_init() {
     Micinterart_Workshop_Checkout::get_instance();
 }
 
-add_action('woocommerce_loaded', 'micinterart_workshop_checkout_init');
+if (did_action('woocommerce_loaded')) {
+    micinterart_workshop_checkout_init();
+} else {
+    add_action('woocommerce_loaded', 'micinterart_workshop_checkout_init');
+}
