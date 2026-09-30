@@ -330,6 +330,37 @@ wp_reset_postdata();
     margin: 0 auto;
 }
 
+.workshop-quantity-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.workshop-quantity-step {
+    width: 44px;
+    height: 44px;
+    border: 1px solid #999;
+    border-radius: 4px;
+    background: #fff;
+    color: #2c2c2c;
+    font-size: 1.4em;
+    cursor: pointer;
+}
+
+.workshop-quantity-step:disabled {
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+.workshop-quantity-input {
+    width: 72px;
+    height: 44px;
+    padding: 8px;
+    text-align: center;
+}
+
 .workshop-anmeldung-button {
     padding: 15px 30px;
     background: #2c2c2c;
@@ -762,12 +793,25 @@ wp_reset_postdata();
                                 <?php do_action('woocommerce_before_add_to_cart_form'); ?>
                                 <form class="cart" action="<?php echo esc_url(apply_filters('woocommerce_add_to_cart_form_action', $product->get_permalink())); ?>" method="post" enctype="multipart/form-data">
                                     <?php do_action('woocommerce_before_add_to_cart_button'); ?>
-                                    <?php woocommerce_quantity_input([
-                                        'min_value' => 1,
-                                        'max_value' => $stock_quantity > 0 ? $stock_quantity : 1,
-                                        'step' => 1,
-                                        'input_value' => 1,
-                                    ]); ?>
+                                    <div class="workshop-quantity-control">
+                                        <button type="button" class="workshop-quantity-step" data-step="-1" aria-label="<?php echo esc_attr($is_en ? 'Remove one place' : 'Einen Platz weniger'); ?>" disabled>−</button>
+                                        <label class="screen-reader-text" for="workshop-quantity-<?php echo esc_attr($product_id); ?>">
+                                            <?php echo esc_html($is_en ? 'Number of places' : 'Anzahl der Plätze'); ?>
+                                        </label>
+                                        <input
+                                            id="workshop-quantity-<?php echo esc_attr($product_id); ?>"
+                                            class="input-text qty text workshop-quantity-input"
+                                            type="number"
+                                            name="quantity"
+                                            value="1"
+                                            min="1"
+                                            max="<?php echo esc_attr($stock_quantity > 0 ? $stock_quantity : 1); ?>"
+                                            step="1"
+                                            inputmode="numeric"
+                                            required
+                                        >
+                                        <button type="button" class="workshop-quantity-step" data-step="1" aria-label="<?php echo esc_attr($is_en ? 'Add one place' : 'Einen Platz mehr'); ?>">+</button>
+                                    </div>
                                     <button type="submit" name="add-to-cart" value="<?php echo esc_attr($product_id); ?>" class="single_add_to_cart_button button alt workshop-anmeldung-button">
                                         🛒 <?php echo $is_en ? 'Add to cart' : 'In den Warenkorb'; ?>
                                     </button>
@@ -891,4 +935,51 @@ if (window.location.hash === '#workshop-anmeldung') {
         }
     }, 300);
 }
+
+function updateWorkshopQuantityButtons(input) {
+    var controls = input.closest('.workshop-quantity-control');
+    if (!controls) {
+        return;
+    }
+
+    var minimum = parseInt(input.min, 10) || 1;
+    var maximum = parseInt(input.max, 10) || minimum;
+    var quantity = parseInt(input.value, 10) || minimum;
+    controls.querySelector('[data-step="-1"]').disabled = quantity <= minimum;
+    controls.querySelector('[data-step="1"]').disabled = quantity >= maximum;
+}
+
+document.querySelectorAll('.workshop-quantity-input').forEach(updateWorkshopQuantityButtons);
+
+document.addEventListener('click', function(event) {
+    var button = event.target.closest('.workshop-quantity-step');
+    if (!button) {
+        return;
+    }
+
+    var input = button.closest('.workshop-quantity-control').querySelector('.workshop-quantity-input');
+    var minimum = parseInt(input.min, 10) || 1;
+    var maximum = parseInt(input.max, 10) || minimum;
+    var quantity = parseInt(input.value, 10) || minimum;
+    var step = parseInt(button.dataset.step, 10) || 0;
+
+    input.value = Math.min(maximum, Math.max(minimum, quantity + step));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    updateWorkshopQuantityButtons(input);
+});
+
+document.addEventListener('change', function(event) {
+    if (!event.target.matches('.workshop-quantity-input')) {
+        return;
+    }
+
+    var input = event.target;
+    var minimum = parseInt(input.min, 10) || 1;
+    var maximum = parseInt(input.max, 10) || minimum;
+    var quantity = parseInt(input.value, 10) || minimum;
+
+    input.value = Math.min(maximum, Math.max(minimum, quantity));
+    updateWorkshopQuantityButtons(input);
+});
 </script>
