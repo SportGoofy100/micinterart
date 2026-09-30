@@ -299,6 +299,19 @@ function micinterart_werk_archive_template($template) {
 }
 add_filter('archive_template', 'micinterart_werk_archive_template', 25);
 
+function micinterart_render_wc_default_single_product() {
+    get_header('shop');
+    do_action('woocommerce_before_main_content');
+
+    while (have_posts()) {
+        the_post();
+        wc_get_template_part('content', 'single-product');
+    }
+
+    do_action('woocommerce_after_main_content');
+    get_footer('shop');
+}
+
 /**
  * WC-Produkt-Templates: Verwende angepasste Workshop-Templates für WC-Produkte
  */
@@ -307,7 +320,9 @@ function micinterart_wc_product_templates($template) {
         $product_id = get_the_ID();
         
         // Prüfen ob es ein Workshop-Produkt ist
-        $is_workshop = false;
+        $product = wc_get_product($product_id);
+        $is_workshop = function_exists('micinterart_wc_is_workshop_product')
+            && micinterart_wc_is_workshop_product($product);
         $terms = get_the_terms($product_id, 'product_cat');
         
         if ($terms && !is_wp_error($terms)) {

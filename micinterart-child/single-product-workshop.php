@@ -20,11 +20,12 @@ if (!class_exists('WooCommerce')) {
 $product = wc_get_product(get_the_ID());
 if (!$product) {
     // Fallback to standard product template
-    wc_get_template('single-product.php');
+    micinterart_render_wc_default_single_product();
     return;
 }
 
-$is_workshop = false;
+$is_workshop = function_exists('micinterart_wc_is_workshop_product')
+    && micinterart_wc_is_workshop_product($product);
 $terms = get_the_terms(get_the_ID(), 'product_cat');
 if ($terms && !is_wp_error($terms)) {
     foreach ($terms as $term) {
@@ -37,7 +38,7 @@ if ($terms && !is_wp_error($terms)) {
 
 if (!$is_workshop) {
     // Falls kein Workshop, normale Produktseite anzeigen
-    wc_get_template('single-product.php');
+    micinterart_render_wc_default_single_product();
     return;
 }
 
