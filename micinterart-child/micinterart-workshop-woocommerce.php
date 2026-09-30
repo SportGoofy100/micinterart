@@ -138,8 +138,8 @@ class Micinterart_Workshop_WooCommerce {
         // Workshop-spezifische Validierung
         add_filter('woocommerce_product_is_purchasable', [$this, 'workshop_product_is_purchasable'], 10, 2);
         
-        // Lagerbestand aus Workshop-Feldern
-        add_filter('woocommerce_product_get_stock_quantity', [$this, 'workshop_product_stock_quantity'], 10, 2);
+        // Aktuelle Buchungen mit WooCommerce-Bestandsänderungen synchronisieren
+        add_action('woocommerce_product_set_stock', [$this, 'sync_workshop_bookings_from_stock']);
     }
     
     /**
@@ -558,15 +558,14 @@ class Micinterart_Workshop_WooCommerce {
             }
         }
         
+        $product_needs_save = false;
+
         // WooCommerce-Preis aus _workshop_preis übernehmen (Warenkorb nutzt _price)
         if (isset($_POST['_workshop_preis']) && $_POST['_workshop_preis'] !== '') {
             $wc_preis = wc_format_decimal(wp_unslash($_POST['_workshop_preis']));
-            $p = wc_get_product($post_id);
-            if ($p) {
-                $p->set_regular_price($wc_preis);
-                $p->set_virtual(true);
-                $p->save();
-            }
+            $product->set_regular_price($wc_preis);
+            $product->set_virtual(true);
+            $product_needs_save = true;
         }
 
         // Synchronisiere max_teilnehmer mit Lagerbestand
@@ -575,12 +574,13 @@ class Micinterart_Workshop_WooCommerce {
             $current_bookings = (int)(isset($_POST['_workshop_current_bookings']) ? $_POST['_workshop_current_bookings'] : 0);
             $stock_quantity = max(0, $max_teilnehmer - $current_bookings);
             
-            $product = wc_get_product($post_id);
-            if ($product) {
-                $product->set_manage_stock(true);
-                $product->set_stock_quantity($stock_quantity);
-                $product->save();
-            }
+            $product->set_manage_stock(true);
+            $product->set_stock_quantity($stock_quantity);
+            $product_needs_save = true;
+        }
+
+        if ($product_needs_save) {
+            $product->save();
         }
     }
     
@@ -603,18 +603,22 @@ class Micinterart_Workshop_WooCommerce {
     }
     
     /**
-     * Workshop-spezifische Stock-Logik: Lagerbestand aus Workshop-Feldern
+     * Keeps the booking counter aligned with WooCommerce's stock reductions and restores.
      */
-    public function workshop_product_stock_quantity($stock_quantity, $product) {
-        if ($product->get_type() === 'workshop') {
-            $max_teilnehmer = $product->get_meta('_workshop_max_teilnehmer', true);
-            $current_bookings = $product->get_meta('_workshop_current_bookings', true);
-            
-            if (!empty($max_teilnehmer)) {
-                $stock_quantity = max(0, (int)$max_teilnehmer - (int)$current_bookings);
-            }
+    public function sync_workshop_bookings_from_stock($product) {
+        if (!is_a($product, 'WC_Product') || $product->get_type() !== 'workshop') {
+            return;
         }
-        return $stock_quantity;
+
+        $max_teilnehmer = absint($product->get_meta('_workshop_max_teilnehmer', true));
+        $stock_quantity = $product->get_stock_quantity('edit');
+
+        if ($max_teilnehmer <= 0 || $stock_quantity === null || $stock_quantity === '') {
+            return;
+        }
+
+        $remaining_places = min($max_teilnehmer, max(0, (int) $stock_quantity));
+        update_post_meta($product->get_id(), '_workshop_current_bookings', $max_teilnehmer - $remaining_places);
     }
 }
 
