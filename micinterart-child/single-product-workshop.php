@@ -600,8 +600,10 @@ wp_reset_postdata();
             <?php if ($product->get_image_id()) : ?>
                 <div class="workshop-featured-image">
                     <?php echo wp_get_attachment_image($product->get_image_id(), 'large', false, [
+                        'class' => 'skip-lazy',
                         'alt' => get_the_title($product_id),
-                        'loading' => 'lazy',
+                        'loading' => 'eager',
+                        'fetchpriority' => 'high',
                     ]); ?>
                 </div>
             <?php endif; ?>
