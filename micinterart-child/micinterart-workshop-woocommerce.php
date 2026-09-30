@@ -178,9 +178,6 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_preis_info',
             '_workshop_sprache',
             '_workshop_max_teilnehmer',
-            '_workshop_anmeldung_email',
-            '_workshop_anmeldung_telefon',
-            '_workshop_anmeldung_link',
             '_workshop_is_paar_preis',
             '_workshop_current_bookings',
             '_workshop_status',
@@ -299,9 +296,6 @@ class Micinterart_Workshop_WooCommerce {
         $preis_info = get_post_meta($product_id, '_workshop_preis_info', true);
         $sprache = get_post_meta($product_id, '_workshop_sprache', true);
         $max_teilnehmer = get_post_meta($product_id, '_workshop_max_teilnehmer', true);
-        $anmeldung_email = get_post_meta($product_id, '_workshop_anmeldung_email', true);
-        $anmeldung_telefon = get_post_meta($product_id, '_workshop_anmeldung_telefon', true);
-        $anmeldung_link = get_post_meta($product_id, '_workshop_anmeldung_link', true);
         $is_paar = get_post_meta($product_id, '_workshop_is_paar_preis', true);
         $status = get_post_meta($product_id, '_workshop_status', true);
         $current_bookings = get_post_meta($product_id, '_workshop_current_bookings', true);
@@ -435,31 +429,6 @@ class Micinterart_Workshop_WooCommerce {
             'value' => $status ?: 'geplant',
         ]);
         
-        // Anmeldungsoptionen
-        echo '<h3>' . __('Anmeldung', 'micinterart') . '</h3>';
-        echo '<div class="options_group">';
-        woocommerce_wp_text_input([
-            'id' => '_workshop_anmeldung_email',
-            'label' => __('Anmeldung E-Mail', 'micinterart'),
-            'placeholder' => 'kontakt@micinterart.de',
-            'value' => $anmeldung_email,
-            'type' => 'email',
-        ]);
-        woocommerce_wp_text_input([
-            'id' => '_workshop_anmeldung_telefon',
-            'label' => __('Anmeldung Telefon', 'micinterart'),
-            'placeholder' => '+49 123 456789',
-            'value' => $anmeldung_telefon,
-        ]);
-        woocommerce_wp_text_input([
-            'id' => '_workshop_anmeldung_link',
-            'label' => __('Anmeldung Link', 'micinterart'),
-            'placeholder' => 'https://...',
-            'value' => $anmeldung_link,
-            'type' => 'url',
-        ]);
-        echo '</div>';
-        
         // "Was dich erwartet" Felder
         $this->render_erwartet_fields($product_id);
         
@@ -557,9 +526,6 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_preis_info',
             '_workshop_sprache',
             '_workshop_max_teilnehmer',
-            '_workshop_anmeldung_email',
-            '_workshop_anmeldung_telefon',
-            '_workshop_anmeldung_link',
             '_workshop_current_bookings',
             '_workshop_status',
         ];
@@ -568,7 +534,7 @@ class Micinterart_Workshop_WooCommerce {
             if (isset($_POST[$field])) {
                 $value = sanitize_text_field($_POST[$field]);
                 // Für numerische Felder
-                if (in_array($field, ['_workshop_dauer_stunden', '_workshop_max_teilnehmer', '_workshop_current_bookings', '_workshop_anmeldung_telefon'])) {
+                if (in_array($field, ['_workshop_dauer_stunden', '_workshop_max_teilnehmer', '_workshop_current_bookings'])) {
                     $value = is_numeric($_POST[$field]) ? absint($_POST[$field]) : '';
                 }
                 update_post_meta($post_id, $field, $value);
