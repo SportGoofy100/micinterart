@@ -59,10 +59,10 @@ class Micinterart_Workshop_Checkout {
             $additional_count = $quantity - 1;
 
             echo '<div class="workshop-participant-fields">';
-            echo '<h3>' . esc_html(sprintf(__('Teilnehmende für „%s“', 'micinterart'), $product->get_name())) . '</h3>';
-            echo '<p>' . esc_html(__('Du bist als Besteller automatisch als erste Person berücksichtigt. Bitte gib die Namen der weiteren Teilnehmenden jeweils in einer eigenen Zeile an.', 'micinterart')) . '</p>';
+            echo '<h3>' . esc_html(sprintf(__('Teilnehmer für „%s“', 'micinterart'), $product->get_name())) . '</h3>';
+            echo '<p>' . esc_html(__('Du bist als Besteller automatisch als erste Person berücksichtigt. Bitte gib die Namen der weiteren Teilnehmer jeweils in einer eigenen Zeile an.', 'micinterart')) . '</p>';
             echo '<p class="form-row form-row-wide workshop-teilnehmer-names">';
-            echo '<label for="' . esc_attr($field_id) . '">' . esc_html(sprintf(_n('Name der weiteren teilnehmenden Person', 'Namen der %d weiteren teilnehmenden Personen', $additional_count, 'micinterart'), $additional_count)) . ' <span class="required">*</span></label>';
+            echo '<label for="' . esc_attr($field_id) . '">' . esc_html(sprintf(_n('Name des weiteren Teilnehmers', 'Namen der %d weiteren Teilnehmer', $additional_count, 'micinterart'), $additional_count)) . ' <span class="required">*</span></label>';
             echo '<textarea id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" rows="' . esc_attr(max(2, $additional_count)) . '" required>' . esc_textarea($value) . '</textarea>';
             echo '</p></div>';
         }
@@ -101,7 +101,7 @@ class Micinterart_Workshop_Checkout {
 
         $names = $this->get_submitted_participant_names($cart_item_key);
         if (count($names) === $quantity - 1) {
-            $item->add_meta_data(__('Weitere Teilnehmende', 'micinterart'), implode("\n", $names), true);
+            $item->add_meta_data(__('Weitere Teilnehmer', 'micinterart'), implode("\n", $names), true);
         }
     }
 
