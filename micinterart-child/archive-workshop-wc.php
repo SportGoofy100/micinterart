@@ -1155,7 +1155,6 @@ endif;
 // Liest Bilder von der Seite "Workshop Impressionen" aus
 // und zeigt sie zufaellig in einem Slider an.
 // ============================================================================
-<?php
 // Seite "Workshop Impressionen" finden (auch private Seiten!)
 $impressionen_page = get_page_by_path('workshop-impressionen', OBJECT, 'page');
 if ($impressionen_page && $impressionen_page->post_status === 'private') {
@@ -1271,7 +1270,7 @@ if (!empty($gallery_images)) :
         <span class="mic-lightbox-nav mic-lightbox-next" id="mic-lightbox-next">&#10095;</span>
         <img src="" alt="Lightbox" id="mic-lightbox-img" />
     </div>
-<?php endif; ?>
+<?php endif;
 
 echo '</div>';
 
