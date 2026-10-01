@@ -292,10 +292,16 @@ class Micinterart_Workshop_WooCommerce {
         global $post, $product_object;
         
         if (!is_a($product_object, 'WC_Product')) {
-            $product_object = wc_get_product($post->ID ?? 0);
+            $product_object = isset($post->ID) && $post->ID ? wc_get_product($post->ID) : null;
         }
         if (!$product_object) {
-            return;
+            // Versuche nochmal mit global $post
+            if ($post && isset($post->ID) && $post->ID) {
+                $product_object = wc_get_product($post->ID);
+            }
+            if (!$product_object) {
+                return;
+            }
         }
         
         $product_id = $product_object->get_id();

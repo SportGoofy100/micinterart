@@ -287,17 +287,6 @@ class Micinterart_Werk_WooCommerce {
         global $post;
         
         $product_id = $post->ID ?? 0;
-        $product = $post ? wc_get_product($post->ID) : null;
-        
-        // Prüfe ob wir auf einer Produkt-Bearbeitungsseite sind
-        if (!function_exists('get_current_screen')) {
-            return;
-        }
-        
-        $screen = get_current_screen();
-        if (!$screen || $screen->id !== 'product') {
-            return;
-        }
         
         // Meta-Werte laden (auch wenn Produkt noch nicht gespeichert ist)
         $materials = get_post_meta($product_id, '_werk_materials', true);
