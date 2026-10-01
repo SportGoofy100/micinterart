@@ -69,15 +69,24 @@ class WC_Product_Workshop extends WC_Product_Simple {
      */
     public function get_stock_quantity($context = 'view') {
         $stock = parent::get_stock_quantity($context);
-        
-        // Falls Stock nicht gesetzt, aber max_teilnehmer vorhanden
-        if ($stock === '' || $stock === null) {
-            $max_teilnehmer = $this->get_meta('_workshop_max_teilnehmer', true);
-            $current_bookings = $this->get_meta('_workshop_current_bookings', true);
-            
-            if (!empty($max_teilnehmer)) {
-                $stock = max(0, (int)$max_teilnehmer - (int)$current_bookings);
+
+        $max_teilnehmer = absint($this->get_meta('_workshop_max_teilnehmer', true));
+        if ($max_teilnehmer > 0) {
+            $needs_save = false;
+
+            if (!$this->get_manage_stock('edit')) {
+                $this->set_manage_stock(true);
+                $needs_save = true;
+            }
+
+            if ($stock === '' || $stock === null) {
+                $current_bookings = absint($this->get_meta('_workshop_current_bookings', true));
+                $stock = max(0, $max_teilnehmer - $current_bookings);
                 $this->set_stock_quantity($stock);
+                $needs_save = true;
+            }
+
+            if ($needs_save) {
                 $this->save();
             }
         }
