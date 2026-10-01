@@ -640,33 +640,33 @@ class Micinterart_Workshop_WooCommerce {
                 $this->sync_workshop_bookings_from_stock($product);
             }
         }
+    }
 
-        public function render_workshop_admin_stock_html($stock_html, $product) {
-            if (!is_a($product, 'WC_Product') || $product->get_type() !== 'workshop') {
-                return $stock_html;
-            }
-
-            $max_teilnehmer = absint($product->get_meta('_workshop_max_teilnehmer', true));
-            if ($max_teilnehmer <= 0) {
-                return $stock_html;
-            }
-
-            $stock_quantity = get_post_meta($product->get_id(), '_stock', true);
-            if ($stock_quantity === '') {
-                $current_bookings = absint($product->get_meta('_workshop_current_bookings', true));
-                $stock_quantity = max(0, $max_teilnehmer - $current_bookings);
-            } else {
-                $stock_quantity = max(0, (int) $stock_quantity);
-            }
-
-            $status_class = $stock_quantity > 0 ? 'instock' : 'outofstock';
-            $label = sprintf(
-                _n('%d Platz verfügbar', '%d Plätze verfügbar', $stock_quantity, 'micinterart'),
-                $stock_quantity
-            );
-
-            return '<mark class="' . esc_attr($status_class) . '">' . esc_html($label) . '</mark>';
+    public function render_workshop_admin_stock_html($stock_html, $product) {
+        if (!is_a($product, 'WC_Product') || $product->get_type() !== 'workshop') {
+            return $stock_html;
         }
+
+        $max_teilnehmer = absint($product->get_meta('_workshop_max_teilnehmer', true));
+        if ($max_teilnehmer <= 0) {
+            return $stock_html;
+        }
+
+        $stock_quantity = get_post_meta($product->get_id(), '_stock', true);
+        if ($stock_quantity === '') {
+            $current_bookings = absint($product->get_meta('_workshop_current_bookings', true));
+            $stock_quantity = max(0, $max_teilnehmer - $current_bookings);
+        } else {
+            $stock_quantity = max(0, (int) $stock_quantity);
+        }
+
+        $status_class = $stock_quantity > 0 ? 'instock' : 'outofstock';
+        $label = sprintf(
+            _n('%d Platz verfügbar', '%d Plätze verfügbar', $stock_quantity, 'micinterart'),
+            $stock_quantity
+        );
+
+        return '<mark class="' . esc_attr($status_class) . '">' . esc_html($label) . '</mark>';
     }
 
     public function complete_paid_workshop_order($order_id, $transaction_id = '') {
