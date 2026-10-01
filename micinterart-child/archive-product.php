@@ -23,7 +23,7 @@ $is_workshop_category = false;
 $queried_object = get_queried_object();
 
 if ($queried_object && isset($queried_object->taxonomy) && $queried_object->taxonomy === 'product_cat') {
-    $workshop_slugs = ['workshops', 'atelierkurse', 'kinderworkshops'];
+    $workshop_slugs = ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'];
     if (in_array($queried_object->slug, $workshop_slugs)) {
         $is_workshop_category = true;
     }

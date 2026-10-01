@@ -255,7 +255,7 @@ function micinterart_wc_product_templates($template) {
         
         if ($terms && !is_wp_error($terms)) {
             foreach ($terms as $term) {
-                if ($term->slug === 'workshops' || $term->slug === 'atelierkurse' || $term->slug === 'kinderworkshops') {
+                if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
                     $is_workshop = true;
                     break;
                 }
@@ -281,7 +281,7 @@ function micinterart_wc_product_cat_archive_template($template) {
     if (is_tax('product_cat')) {
         $term = get_queried_object();
         
-        if ($term && ($term->slug === 'workshops' || $term->slug === 'atelierkurse' || $term->slug === 'kinderworkshops')) {
+        if ($term && in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
             $new_template = locate_template('archive-workshop-wc.php');
             if ($new_template) {
                 return $new_template;
@@ -320,7 +320,7 @@ function micinterart_dequeue_wc_assets() {
             
             if ($terms && !is_wp_error($terms)) {
                 foreach ($terms as $term) {
-                    if ($term->slug === 'workshops' || $term->slug === 'atelierkurse' || $term->slug === 'kinderworkshops') {
+                    if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
                         // WC-Standard-CSS deaktivieren für Workshops
                         wp_dequeue_style('woocommerce-layout');
                         wp_dequeue_style('woocommerce-smallscreen');

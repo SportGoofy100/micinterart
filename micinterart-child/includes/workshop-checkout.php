@@ -168,7 +168,7 @@ class Micinterart_Workshop_Checkout {
         }
         
         foreach ($terms as $term) {
-            if ($term->slug === 'workshops' || $term->slug === 'atelierkurse' || $term->slug === 'kinderworkshops') {
+            if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
                 return true;
             }
         }
@@ -204,7 +204,7 @@ class Micinterart_Workshop_Checkout {
                 $terms = get_the_terms($product_id, 'product_cat');
                 if ($terms && !is_wp_error($terms)) {
                     foreach ($terms as $term) {
-                        if ($term->slug === 'kinderworkshops') {
+                        if (in_array($term->slug, ['kinderworkshop', 'kinderworkshops'], true)) {
                             $kinderworkshop_items[] = $cart_item;
                             break;
                         }

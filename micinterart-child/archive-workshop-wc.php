@@ -460,15 +460,30 @@ $is_en = (function_exists('pll_current_language') && pll_current_language() === 
 
 $heute = date('Y-m-d');
 
-// Workshop-Kategorie Term holen
+// Übergeordnete Workshop-Kategorie holen
 $workshops_term = get_term_by('slug', 'workshops', 'product_cat');
-$atelierkurse_term = get_term_by('slug', 'atelierkurse', 'product_cat');
-$kinderworkshops_term = get_term_by('slug', 'kinderworkshops', 'product_cat');
 
 // Sammle alle Workshops nach Kategorie
 $kinder_upcoming = [];
 $erwachsenen_upcoming = [];
 $archiv_workshops = [];
+$workshop_category_type = static function($product_id) {
+    $categories = get_the_terms($product_id, 'product_cat');
+    if (!$categories || is_wp_error($categories)) {
+        return '';
+    }
+
+    foreach ($categories as $category) {
+        if (in_array($category->slug, ['kinderworkshop', 'kinderworkshops'], true)) {
+            return 'kinder';
+        }
+        if (in_array($category->slug, ['erwachsenenworkshop', 'erwachsenenworkshops', 'atelierkurse'], true)) {
+            return 'erwachsene';
+        }
+    }
+
+    return '';
+};
 
 $workshop_product_tax_query = [
     'relation' => 'OR',
@@ -516,17 +531,11 @@ if (!empty($workshop_product_tax_query)) {
             
             $datum = get_post_meta($product_id, '_workshop_datum', true);
             
-            // Kategorie bestimmen
-            $is_kinder = false;
-            $categories = get_the_terms($product_id, 'product_cat');
-            if ($categories && !is_wp_error($categories)) {
-                foreach ($categories as $category) {
-                    if ($category->slug === 'kinderworkshops') { 
-                        $is_kinder = true; 
-                        break;
-                    }
-                }
+            $category_type = $workshop_category_type($product_id);
+            if ($category_type === '') {
+                continue;
             }
+            $is_kinder = $category_type === 'kinder';
             
             $status = get_post_meta($product_id, '_workshop_status', true) ?: 'geplant';
             $stock = $product ? $product->get_stock_quantity() : 0;
@@ -577,16 +586,11 @@ if (!empty($workshop_product_tax_query)) {
             
             $datum = get_post_meta($product_id, '_workshop_datum', true);
             
-            $is_kinder = false;
-            $categories = get_the_terms($product_id, 'product_cat');
-            if ($categories && !is_wp_error($categories)) {
-                foreach ($categories as $category) {
-                    if ($category->slug === 'kinderworkshops') { 
-                        $is_kinder = true; 
-                        break;
-                    }
-                }
+            $category_type = $workshop_category_type($product_id);
+            if ($category_type === '') {
+                continue;
             }
+            $is_kinder = $category_type === 'kinder';
             
             $archiv_workshops[] = [
                 'post' => get_post($product_id),

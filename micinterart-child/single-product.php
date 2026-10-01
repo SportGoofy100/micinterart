@@ -26,7 +26,7 @@ $is_workshop = function_exists('micinterart_wc_is_workshop_product')
 $terms = get_the_terms($product_id, 'product_cat');
 if ($terms && !is_wp_error($terms)) {
     foreach ($terms as $term) {
-        if ($term->slug === 'workshops' || $term->slug === 'atelierkurse' || $term->slug === 'kinderworkshops') {
+        if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
             $is_workshop = true;
             break;
         }
