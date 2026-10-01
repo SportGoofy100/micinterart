@@ -145,7 +145,7 @@ class Micinterart_Workshop_WooCommerce {
         add_action('woocommerce_workshop_add_to_cart', 'woocommerce_simple_add_to_cart');
         
         // Workshop-spezifische Validierung
-        add_filter('woocommerce_product_is_purchasable', [$this, 'workshop_product_is_purchasable'], 10, 2);
+        add_filter('woocommerce_is_purchasable', [$this, 'workshop_product_is_purchasable'], 10, 2);
         
         // Aktuelle Buchungen mit WooCommerce-Bestandsänderungen synchronisieren
         add_action('woocommerce_product_set_stock', [$this, 'sync_workshop_bookings_from_stock']);
