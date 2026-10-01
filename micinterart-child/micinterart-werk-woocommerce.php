@@ -38,13 +38,13 @@ class WC_Product_Werk extends WC_Product_Simple {
         return 'werk';
     }
     
-    // Werke sind keine physischen Produkte
+    // Werke sind physische Produkte
     public function is_virtual() {
-        return true;
+        return false;
     }
     
     public function needs_shipping() {
-        return false;
+        return true;
     }
     
     public function is_sold_individually() {
@@ -184,8 +184,9 @@ class Micinterart_Werk_WooCommerce {
             }
         }
         
-        // Für Werke irrelevante Tabs ausblenden
-        $tabs_to_hide = ['shipping', 'linked_product', 'attribute', 'inventory', 'advanced'];
+        // Für Werke nur nicht relevante Tabs ausblenden (Linked Product, Attribute, Advanced)
+        // Versand und Lager bleiben sichtbar, da Werke physische Produkte sind
+        $tabs_to_hide = ['linked_product', 'attribute', 'advanced'];
         foreach ($tabs_to_hide as $key) {
             if (isset($tabs[$key])) {
                 // Vermeide doppelte Klassen
@@ -200,6 +201,7 @@ class Micinterart_Werk_WooCommerce {
     
     /**
      * Blendet nicht relevante Standard-Felder für Werk-Produkte aus
+     * (nur Preis-Felder, Versand und Lager bleiben sichtbar)
      */
     public function hide_standard_fields_for_werk($options) {
         global $post;
@@ -215,11 +217,6 @@ class Micinterart_Werk_WooCommerce {
             unset($options['_sale_price']);
             unset($options['_price']);
             unset($options['_sold_individually']);
-            
-            // Lagerbestand ausblenden
-            unset($options['_stock_status']);
-            unset($options['_stock']);
-            unset($options['manage_stock']);
         }
         
         return $options;
@@ -255,11 +252,11 @@ class Micinterart_Werk_WooCommerce {
             
             function toggleWerkTypeOptions() {
                 var productType = $('select#product-type').val();
-                // Für Werke alle Typ-Optionen ausblenden (außer Virtuell)
+                // Für Werke alle Typ-Optionen ausblenden (außer Virtuell - aber Virtuell soll DEAKTIVIERT sein)
                 if (productType === 'werk') {
                     $typeOptions.not(':has(input[name="_virtual"])').hide();
-                    // Virtuell immer aktiviert für Werke
-                    $typeOptions.has('input[name="_virtual"]').show().find('input').prop('checked', true).prop('disabled', true);
+                    // Virtuell deaktivieren für Werke (nicht automatisch aktiviert)
+                    $typeOptions.has('input[name="_virtual"]').show().find('input').prop('checked', false).prop('disabled', false);
                 }
             }
             

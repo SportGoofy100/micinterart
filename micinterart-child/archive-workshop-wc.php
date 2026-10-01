@@ -1013,7 +1013,7 @@ if ($next_workshop) :
     // Sektions-Titel
     echo '<div class="workshop-section ' . esc_attr($section_class) . '" style="margin-bottom: 0;">';
     echo '<div class="section-header">';
-    echo '<h2 class="section-title">' . ($is_kind ? ($is_en ? 'Children\'s Workshops' : 'Kinderworkshops') : ($is_en ? 'Art Courses for Adults' : 'Atelierkurse für Erwachsene')) . '</h2>';
+    echo '<h2 class="section-title">' . ($is_kind ? ($is_en ? 'Young Studio' : 'Junges Atelier') : ($is_en ? 'Art Courses for Adults' : 'Atelierkurse für Erwachsene')) . '</h2>';
     echo '</div>';
     
     // Hero Card
@@ -1073,8 +1073,8 @@ endif;
 if (!empty($kinder_upcoming)) :
     echo '<div class="workshop-section kinder">';
     echo '<div class="section-header">';
-    echo '<h2 class="section-title">' . ($is_en ? 'Children\'s Workshops' : 'Kinderworkshops') . '</h2>';
-    echo '<p class="section-subtitle">' . ($is_en ? 'Creativity for our youngest artists' : 'Kreativität für unsere jüngsten Künstler') . '</p>';
+    echo '<h2 class="section-title">' . ($is_en ? 'Young Studio' : 'Junges Atelier') . '</h2>';
+    echo '<p class="section-subtitle">' . ($is_en ? 'Creative space for art & birthdays' : 'Freier Raum für Kunst & Geburtstage') . '</p>';
     echo '</div>';
     
     // Filtere bereits in Hero angezeigten Workshop
