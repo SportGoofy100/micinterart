@@ -916,6 +916,7 @@ function display_workshop_card($workshop, $is_archiv = false) {
     echo '</div>';
     
     echo '</div>';
+    echo '</div>';
 }
 
 // ============================================================================
