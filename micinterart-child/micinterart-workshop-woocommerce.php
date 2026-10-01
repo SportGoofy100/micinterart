@@ -140,6 +140,10 @@ class Micinterart_Workshop_WooCommerce {
         
         // Aktuelle Buchungen mit WooCommerce-Bestandsänderungen synchronisieren
         add_action('woocommerce_product_set_stock', [$this, 'sync_workshop_bookings_from_stock']);
+
+        // Bezahlte Workshop-Bestellungen benötigen keine manuelle Bearbeitung oder Versandmail
+        add_action('woocommerce_payment_complete', [$this, 'complete_paid_workshop_order'], 20, 2);
+        add_filter('woocommerce_email_enabled_customer_completed_order', [$this, 'disable_workshop_completed_email'], 10, 3);
     }
     
     /**
@@ -614,6 +618,47 @@ class Micinterart_Workshop_WooCommerce {
 
         $remaining_places = min($max_teilnehmer, max(0, (int) $stock_quantity));
         update_post_meta($product->get_id(), '_workshop_current_bookings', $max_teilnehmer - $remaining_places);
+    }
+
+    public function complete_paid_workshop_order($order_id, $transaction_id = '') {
+        $order = wc_get_order($order_id);
+        if (!$this->order_contains_only_workshop_products($order) || $order->has_status('completed')) {
+            return;
+        }
+
+        $order->update_status('completed', __('Workshop-Buchung bezahlt; kein Versand erforderlich.', 'micinterart'));
+    }
+
+    public function disable_workshop_completed_email($enabled, $order, $email = null) {
+        if ($this->order_contains_only_workshop_products($order)) {
+            return false;
+        }
+
+        return $enabled;
+    }
+
+    private function order_contains_only_workshop_products($order) {
+        if (is_numeric($order)) {
+            $order = wc_get_order($order);
+        }
+
+        if (!$order instanceof WC_Order) {
+            return false;
+        }
+
+        $items = $order->get_items('line_item');
+        if (empty($items)) {
+            return false;
+        }
+
+        foreach ($items as $item) {
+            $product = $item->get_product();
+            if (!$product || $product->get_type() !== 'workshop') {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 
