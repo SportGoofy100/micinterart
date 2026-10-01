@@ -926,10 +926,6 @@ endif;
 
 if (!empty($erwachsenen_upcoming)) :
     echo '<div class="workshop-section">';
-    echo '<div class="section-header">';
-    echo '<h2 class="section-title">' . ($is_en ? 'Art Courses for Adults' : 'Atelierkurse für Erwachsene') . '</h2>';
-    echo '<p class="section-subtitle">' . ($is_en ? 'Discover your creative side' : 'Entdecke deine kreative Seite') . '</p>';
-    echo '</div>';
     
     // Filtere bereits in Hero angezeigten Workshop
     $erwachsenen_display = array_filter($erwachsenen_upcoming, function($w) use ($displayed_ids) {
