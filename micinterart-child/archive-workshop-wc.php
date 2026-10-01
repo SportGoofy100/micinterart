@@ -451,6 +451,179 @@ $is_en = (function_exists('pll_current_language') && pll_current_language() === 
         font-size: 2.2em;
     }
 }
+/* ============================================================================
+   IMPRESSIONEN-SLIDER
+   ============================================================================ */
+.impressionen-section {
+    margin: 50px auto 60px;
+    max-width: 1200px;
+    overflow: hidden;
+}
+.impressionen-header {
+    text-align: center;
+    margin-bottom: 25px;
+}
+.impressionen-header h2 {
+    font-family: 'Bebas Neue', 'Arial', sans-serif;
+    font-size: 2.2em;
+    letter-spacing: 2px;
+    color: #2c2c2c;
+    margin: 0 0 8px 0;
+}
+.impressionen-header p {
+    color: #888;
+    font-size: 0.95em;
+    font-style: italic;
+    margin: 0;
+}
+.impressionen-slider-wrapper {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+}
+.impressionen-track {
+    display: flex;
+    transition: transform 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+    gap: 12px;
+    will-change: transform;
+}
+.impressionen-slide {
+    flex: 0 0 auto;
+    width: calc(25% - 9px);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.impressionen-slide:hover {
+    transform: scale(1.04);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    z-index: 2;
+}
+.impressionen-slide img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    display: block;
+    transition: filter 0.3s ease;
+}
+.impressionen-slide:hover img {
+    filter: brightness(1.08);
+}
+/* Slider Navigation Arrows */
+.imp-slider-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.92);
+    border: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 1.4em;
+    cursor: pointer;
+    z-index: 5;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2c2c2c;
+}
+.imp-slider-btn:hover {
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.22);
+    transform: translateY(-50%) scale(1.1);
+}
+.imp-slider-prev { left: 12px; }
+.imp-slider-next { right: 12px; }
+/* Dots */
+.imp-slider-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 18px;
+}
+.imp-slider-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ccc;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0;
+}
+.imp-slider-dot.active {
+    background: #2c2c2c;
+    transform: scale(1.3);
+}
+/* Lightbox */
+.mic-lightbox-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.mic-lightbox-overlay.active {
+    display: flex;
+}
+.mic-lightbox-overlay img {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    cursor: default;
+}
+.mic-lightbox-close {
+    position: fixed;
+    top: 20px;
+    right: 30px;
+    color: #fff;
+    font-size: 2.5em;
+    cursor: pointer;
+    z-index: 100000;
+    line-height: 1;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    transition: transform 0.2s;
+}
+.mic-lightbox-close:hover { transform: scale(1.2); }
+.mic-lightbox-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #fff;
+    font-size: 3em;
+    cursor: pointer;
+    z-index: 100000;
+    padding: 10px;
+    user-select: none;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    transition: transform 0.2s;
+}
+.mic-lightbox-nav:hover { transform: translateY(-50%) scale(1.15); }
+.mic-lightbox-prev { left: 20px; }
+.mic-lightbox-next { right: 20px; }
+
+@media (max-width: 900px) {
+    .impressionen-slide {
+        width: calc(33.333% - 8px);
+    }
+    .impressionen-slide img { height: 180px; }
+}
+@media (max-width: 600px) {
+    .impressionen-slide {
+        width: calc(50% - 6px);
+    }
+    .impressionen-slide img { height: 150px; }
+    .imp-slider-btn { width: 36px; height: 36px; font-size: 1.1em; }
+}
+
 </style>
 
 <?php
@@ -977,6 +1150,129 @@ if (empty($kinder_upcoming) && empty($erwachsenen_upcoming) && empty($archiv_wor
     echo '</div>';
 endif;
 
+// ============================================================================
+// IMPRESSIONEN-GALERIE
+// Liest Bilder von der Seite "Workshop Impressionen" aus
+// und zeigt sie zufaellig in einem Slider an.
+// ============================================================================
+<?php
+// Seite "Workshop Impressionen" finden (auch private Seiten!)
+$impressionen_page = get_page_by_path('workshop-impressionen', OBJECT, 'page');
+if ($impressionen_page && $impressionen_page->post_status === 'private') {
+    // OK - private Seite gefunden
+} elseif (!$impressionen_page || $impressionen_page->post_status !== 'publish') {
+    // Fallback: direkt per DB suchen (publish + private)
+    global $wpdb;
+    $impressionen_page = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT * FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'page' AND post_status IN ('publish','private') LIMIT 1",
+            'workshop-impressionen'
+        )
+    );
+    if ($impressionen_page) {
+        $impressionen_page = get_post($impressionen_page->ID);
+    }
+}
+
+// Fallback: Per Titel suchen
+if (!$impressionen_page) {
+    $pages = get_posts(array(
+        'post_type'      => 'page',
+        'posts_per_page' => 1,
+        'title'          => 'Workshop Impressionen',
+        'post_status'    => array('publish', 'private'),
+    ));
+    if (!empty($pages)) {
+        $impressionen_page = $pages[0];
+    }
+}
+
+$gallery_images = array();
+
+if ($impressionen_page) {
+    // 1. Gutenberg Gallery-Block Bilder extrahieren
+    $blocks = parse_blocks($impressionen_page->post_content);
+    foreach ($blocks as $block) {
+        if ($block['blockName'] === 'core/gallery') {
+            if (!empty($block['innerBlocks'])) {
+                foreach ($block['innerBlocks'] as $inner) {
+                    if ($inner['blockName'] === 'core/image' && !empty($inner['attrs']['id'])) {
+                        $gallery_images[] = intval($inner['attrs']['id']);
+                    }
+                }
+            }
+            if (empty($gallery_images) && !empty($block['attrs']['ids'])) {
+                $gallery_images = array_map('intval', $block['attrs']['ids']);
+            }
+        }
+        // Einzelne Bilder ausserhalb einer Galerie
+        if ($block['blockName'] === 'core/image' && !empty($block['attrs']['id'])) {
+            $gallery_images[] = intval($block['attrs']['id']);
+        }
+    }
+
+    // 2. Fallback: [gallery]-Shortcode
+    if (empty($gallery_images)) {
+        if (preg_match('/\[gallery[^\]]*ids=["\'?]?([0-9,]+)["\'?]?/', $impressionen_page->post_content, $gm)) {
+            $gallery_images = array_map('intval', explode(',', $gm[1]));
+        }
+    }
+
+    // 3. Letzter Fallback: Angehaengte Bilder
+    if (empty($gallery_images)) {
+        $attached = get_posts(array(
+            'post_type'      => 'attachment',
+            'post_mime_type' => 'image',
+            'post_parent'    => $impressionen_page->ID,
+            'posts_per_page' => -1,
+            'post_status'    => 'inherit',
+        ));
+        foreach ($attached as $att) {
+            $gallery_images[] = $att->ID;
+        }
+    }
+}
+
+if (!empty($gallery_images)) :
+    shuffle($gallery_images);
+    $gallery_images = array_slice($gallery_images, 0, 12);
+?>    
+    <div class="impressionen-section">
+        <div class="impressionen-header">
+            <h2>&#128247; <?php echo $is_en ? 'Studio Impressions' : 'Impressionen aus dem Atelier'; ?></h2>
+            <p><?php echo $is_en ? 'Impressions from our workshops' : 'Eindr&uuml;cke aus unseren Workshops'; ?></p>
+        </div>
+        <div class="impressionen-slider-wrapper">
+            <button class="imp-slider-btn imp-slider-prev" id="imp-slider-prev" aria-label="<?php echo $is_en ? 'Previous' : 'Zur&uuml;ck'; ?>">&#10094;</button>
+            <button class="imp-slider-btn imp-slider-next" id="imp-slider-next" aria-label="<?php echo $is_en ? 'Next' : 'Weiter'; ?>">&#10095;</button>
+            <div class="impressionen-track" id="impressionen-track">
+                <?php foreach ($gallery_images as $img_id) :
+                    $img_medium = wp_get_attachment_image_url($img_id, 'medium_large');
+                    $img_full   = wp_get_attachment_image_url($img_id, 'full');
+                    $img_alt    = get_post_meta($img_id, '_wp_attachment_image_alt', true);
+                    if (!$img_alt) { $img_alt = 'Workshop Impression'; }
+                    if ($img_medium) :
+                ?>
+                    <div class="impressionen-slide" data-full="<?php echo esc_url($img_full); ?>">
+                        <img src="<?php echo esc_url($img_medium); ?>"
+                             alt="<?php echo esc_attr($img_alt); ?>"
+                             loading="lazy" />
+                    </div>
+                <?php endif; endforeach; ?>
+            </div>
+        </div>
+        <div class="imp-slider-dots" id="imp-slider-dots"></div>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="mic-lightbox-overlay" id="mic-lightbox">
+        <span class="mic-lightbox-close" id="mic-lightbox-close">&times;</span>
+        <span class="mic-lightbox-nav mic-lightbox-prev" id="mic-lightbox-prev">&#10094;</span>
+        <span class="mic-lightbox-nav mic-lightbox-next" id="mic-lightbox-next">&#10095;</span>
+        <img src="" alt="Lightbox" id="mic-lightbox-img" />
+    </div>
+<?php endif; ?>
+
 echo '</div>';
 
 // Close container
@@ -997,6 +1293,162 @@ function toggleArchiv() {
         button.querySelector('.arrow').textContent = '▲';
     }
 }
+
+// Impressionen Slider
+document.addEventListener('DOMContentLoaded', function() {
+    var track      = document.getElementById('impressionen-track');
+    var slides     = track ? track.querySelectorAll('.impressionen-slide') : [];
+    var prevBtn    = document.getElementById('imp-slider-prev');
+    var nextBtn    = document.getElementById('imp-slider-next');
+    var dotsWrap   = document.getElementById('imp-slider-dots');
+    var sliderPage = 0;
+
+    function getSlidesPerView() {
+        if (window.innerWidth <= 600) return 2;
+        if (window.innerWidth <= 900) return 3;
+        return 4;
+    }
+
+    function getTotalPages() {
+        var perView = getSlidesPerView();
+        return Math.max(1, Math.ceil(slides.length / perView));
+    }
+
+    function buildDots() {
+        if (!dotsWrap) return;
+        dotsWrap.innerHTML = '';
+        var total = getTotalPages();
+        for (var d = 0; d < total; d++) {
+            var dot = document.createElement('button');
+            dot.className = 'imp-slider-dot' + (d === sliderPage ? ' active' : '');
+            dot.setAttribute('aria-label', 'Seite ' + (d + 1));
+            (function(idx) {
+                dot.addEventListener('click', function() { goToPage(idx); });
+            })(d);
+            dotsWrap.appendChild(dot);
+        }
+    }
+
+    function goToPage(page) {
+        var perView = getSlidesPerView();
+        var total = getTotalPages();
+        if (page < 0) page = total - 1;
+        if (page >= total) page = 0;
+        sliderPage = page;
+        if (slides.length === 0 || !track) return;
+        var slide = slides[0];
+        var gap = 12;
+        var slideW = slide.offsetWidth + gap;
+        var offset = sliderPage * perView * slideW;
+        var maxOffset = track.scrollWidth - track.parentElement.offsetWidth;
+        if (offset > maxOffset) offset = maxOffset;
+        track.style.transform = 'translateX(-' + offset + 'px)';
+        var dots = dotsWrap ? dotsWrap.querySelectorAll('.imp-slider-dot') : [];
+        for (var i = 0; i < dots.length; i++) {
+            dots[i].classList.toggle('active', i === sliderPage);
+        }
+    }
+
+    if (prevBtn) prevBtn.addEventListener('click', function() { goToPage(sliderPage - 1); });
+    if (nextBtn) nextBtn.addEventListener('click', function() { goToPage(sliderPage + 1); });
+
+    var autoSlide = null;
+    function startAuto() {
+        stopAuto();
+        autoSlide = setInterval(function() { goToPage(sliderPage + 1); }, 4000);
+    }
+    function stopAuto() {
+        if (autoSlide) { clearInterval(autoSlide); autoSlide = null; }
+    }
+    if (slides.length > 0) {
+        buildDots();
+        startAuto();
+        var sliderWrapper = track ? track.parentElement : null;
+        if (sliderWrapper) {
+            sliderWrapper.addEventListener('mouseenter', stopAuto);
+            sliderWrapper.addEventListener('mouseleave', startAuto);
+        }
+    }
+
+    var touchStartX = 0;
+    var touchEndX = 0;
+    if (track) {
+        track.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+            stopAuto();
+        }, {passive: true});
+        track.addEventListener('touchend', function(e) {
+            touchEndX = e.changedTouches[0].screenX;
+            var diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) goToPage(sliderPage + 1);
+                else goToPage(sliderPage - 1);
+            }
+            startAuto();
+        }, {passive: true});
+    }
+
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            sliderPage = 0;
+            buildDots();
+            goToPage(0);
+        }, 200);
+    });
+
+    // ---- Lightbox ----
+    var lightbox     = document.getElementById('mic-lightbox');
+    var lightboxImg  = document.getElementById('mic-lightbox-img');
+    var lightboxClose = document.getElementById('mic-lightbox-close');
+    var lightboxPrev = document.getElementById('mic-lightbox-prev');
+    var lightboxNext = document.getElementById('mic-lightbox-next');
+    var allSlides    = document.querySelectorAll('.impressionen-slide');
+    var currentIndex = 0;
+
+    function openLightbox(index) {
+        if (!allSlides[index]) return;
+        currentIndex = index;
+        lightboxImg.src = allSlides[index].getAttribute('data-full');
+        lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        stopAuto();
+    }
+    function closeLightbox() {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+        lightboxImg.src = '';
+        startAuto();
+    }
+
+    for (var gi = 0; gi < allSlides.length; gi++) {
+        (function(idx) {
+            allSlides[idx].addEventListener('click', function() { openLightbox(idx); });
+        })(gi);
+    }
+
+    if (lightboxClose) lightboxClose.addEventListener('click', closeLightbox);
+    if (lightbox) lightbox.addEventListener('click', function(e) {
+        if (e.target === lightbox) closeLightbox();
+    });
+    if (lightboxPrev) lightboxPrev.addEventListener('click', function(e) {
+        e.stopPropagation();
+        currentIndex = (currentIndex - 1 + allSlides.length) % allSlides.length;
+        lightboxImg.src = allSlides[currentIndex].getAttribute('data-full');
+    });
+    if (lightboxNext) lightboxNext.addEventListener('click', function(e) {
+        e.stopPropagation();
+        currentIndex = (currentIndex + 1) % allSlides.length;
+        lightboxImg.src = allSlides[currentIndex].getAttribute('data-full');
+    });
+    document.addEventListener('keydown', function(e) {
+        if (!lightbox || !lightbox.classList.contains('active')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft' && lightboxPrev) lightboxPrev.click();
+        if (e.key === 'ArrowRight' && lightboxNext) lightboxNext.click();
+    });
+});
 </script>
 
 <?php get_footer();
