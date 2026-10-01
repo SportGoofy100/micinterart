@@ -140,6 +140,11 @@ class Micinterart_Workshop_WooCommerce {
         
         // Aktuelle Buchungen mit WooCommerce-Bestandsänderungen synchronisieren
         add_action('woocommerce_product_set_stock', [$this, 'sync_workshop_bookings_from_stock']);
+        add_action('woocommerce_reduce_order_stock', [$this, 'sync_workshop_bookings_for_order'], 20);
+        add_action('woocommerce_restore_order_stock', [$this, 'sync_workshop_bookings_for_order'], 20);
+
+        // Restplätze in der Produktübersicht statt eines allgemeinen Lagerstatus anzeigen
+        add_filter('woocommerce_admin_stock_html', [$this, 'render_workshop_admin_stock_html'], 10, 2);
 
         // Bezahlte Workshop-Bestellungen benötigen keine manuelle Bearbeitung oder Versandmail
         add_action('woocommerce_payment_complete', [$this, 'complete_paid_workshop_order'], 20, 2);
@@ -618,6 +623,50 @@ class Micinterart_Workshop_WooCommerce {
 
         $remaining_places = min($max_teilnehmer, max(0, (int) $stock_quantity));
         update_post_meta($product->get_id(), '_workshop_current_bookings', $max_teilnehmer - $remaining_places);
+    }
+
+    public function sync_workshop_bookings_for_order($order): void {
+        if (is_numeric($order)) {
+            $order = wc_get_order($order);
+        }
+
+        if (!$order instanceof WC_Order) {
+            return;
+        }
+
+        foreach ($order->get_items('line_item') as $item) {
+            $product = $item->get_product();
+            if ($product && $product->get_type() === 'workshop') {
+                $this->sync_workshop_bookings_from_stock($product);
+            }
+        }
+
+        public function render_workshop_admin_stock_html($stock_html, $product) {
+            if (!is_a($product, 'WC_Product') || $product->get_type() !== 'workshop') {
+                return $stock_html;
+            }
+
+            $max_teilnehmer = absint($product->get_meta('_workshop_max_teilnehmer', true));
+            if ($max_teilnehmer <= 0) {
+                return $stock_html;
+            }
+
+            $stock_quantity = get_post_meta($product->get_id(), '_stock', true);
+            if ($stock_quantity === '') {
+                $current_bookings = absint($product->get_meta('_workshop_current_bookings', true));
+                $stock_quantity = max(0, $max_teilnehmer - $current_bookings);
+            } else {
+                $stock_quantity = max(0, (int) $stock_quantity);
+            }
+
+            $status_class = $stock_quantity > 0 ? 'instock' : 'outofstock';
+            $label = sprintf(
+                _n('%d Platz verfügbar', '%d Plätze verfügbar', $stock_quantity, 'micinterart'),
+                $stock_quantity
+            );
+
+            return '<mark class="' . esc_attr($status_class) . '">' . esc_html($label) . '</mark>';
+        }
     }
 
     public function complete_paid_workshop_order($order_id, $transaction_id = '') {
