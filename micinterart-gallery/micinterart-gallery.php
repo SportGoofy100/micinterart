@@ -47,7 +47,6 @@ class MicinterartGallery {
 
         add_action('init', [$this, 'register_post_types']);
         add_action('init', [$this, 'register_taxonomies']);
-        add_action('init', [$this, 'register_gallery_block']);
         add_action('add_meta_boxes', [$this, 'add_metaboxes']);
         add_action('admin_menu', [$this, 'remove_legacy_cpt_admin_menus'], 999);
         add_action('save_post_gedicht', [$this, 'save_gedicht_meta']);
@@ -56,7 +55,6 @@ class MicinterartGallery {
         add_action('pll_save_post_translations', [$this, 'sync_gedicht_on_polylang_save'], 10, 2);
         add_action('pll_save_post_translations', [$this, 'sync_page_on_polylang_save'], 10, 2);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
-        add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
         add_action('admin_menu', [$this, 'add_plugin_settings_menu']);
         add_action('admin_init', [$this, 'register_plugin_settings']);
         add_filter('page_row_actions', [$this, 'add_retranslate_row_action'], 10, 2);
@@ -129,6 +127,36 @@ class MicinterartGallery {
             'show_in_rest' => true,
             'rewrite' => ['slug' => 'serie'],
         ]);
+    }
+
+    public function add_metaboxes(): void {
+        add_meta_box('gedicht_details', 'Gedicht-Informationen', [$this, 'render_gedicht_metabox'], 'gedicht', 'normal', 'high');
+        add_meta_box('gedicht_relation', 'Zugeordnetes Werk', [$this, 'render_gedicht_relation_metabox'], 'gedicht', 'side', 'default');
+    }
+
+    public function render_gedicht_metabox($post): void {
+        wp_nonce_field('gedicht_meta_save', 'gedicht_meta_nonce');
+        $datum = get_post_meta($post->ID, '_gedicht_datum', true);
+        echo '<p><label for="gedicht_datum">Entstehungsdatum:</label><br>';
+        echo '<input id="gedicht_datum" type="text" name="gedicht_datum" value="' . esc_attr($datum) . '" class="widefat"></p>';
+    }
+
+    public function save_gedicht_meta($post_id): void {
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+        if (!current_user_can('edit_post', $post_id)) return;
+        if (!isset($_POST['gedicht_meta_nonce']) || !wp_verify_nonce($_POST['gedicht_meta_nonce'], 'gedicht_meta_save')) return;
+
+        if (isset($_POST['gedicht_datum'])) {
+            update_post_meta($post_id, '_gedicht_datum', sanitize_text_field(wp_unslash($_POST['gedicht_datum'])));
+        }
+    }
+
+    public function sync_gedicht_on_polylang_save($post_id, $translations): void {
+        $this->sync_new_polylang_translations($post_id, $translations, 'gedicht');
+    }
+
+    public function enqueue_admin_assets($hook): void {
+        wp_enqueue_style('micinterart-admin', plugin_dir_url(__FILE__) . 'assets/css/admin.css', [], self::VERSION);
     }
 
     public function sync_page_on_polylang_save($post_id, $translations) {
