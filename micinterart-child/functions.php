@@ -71,15 +71,6 @@ function micinterart_get_translated_meta($post_id, $meta_key, $single = true) {
 }
 
 // ============================================================================
-// 2. WERK CPT – ADMIN
-//    Custom Columns, Sortierung, Gedicht-Excerpt
-// ============================================================================
-$werk_admin_file = get_stylesheet_directory() . '/includes/werk-admin.php';
-if (file_exists($werk_admin_file)) {
-    require_once $werk_admin_file;
-}
-
-// ============================================================================
 // 3. GEDICHT CPT – ADMIN & FRONTEND
 // ============================================================================
 // Gedicht-Funktionen bleiben aktiv
@@ -122,32 +113,18 @@ function micinterart_load_workshop_wc_includes() {
         require_once $workshop_checkout_file;
     }
     
-    // 301-Weiterleitungen von alten URLs
-    $workshop_redirects_file = get_stylesheet_directory() . '/includes/workshop-redirects.php';
-    if (file_exists($workshop_redirects_file)) {
-        require_once $workshop_redirects_file;
-    }
 }
 add_action('after_setup_theme', 'micinterart_load_workshop_wc_includes', 20);
 
 // ============================================================================
-// 5. WORKSHOP – FRONTEND-ANZEIGE (ANGEPASST)
-//    "Was dich erwartet"-Box für WC-Produkte
-// ============================================================================
-$workshop_frontend_file = get_stylesheet_directory() . '/includes/workshop-frontend.php';
-if (file_exists($workshop_frontend_file)) {
-    require_once $workshop_frontend_file;
-}
-
-// ============================================================================
-// 6. WORKSHOP – ARCHIV & EINZELSEITE (NEUE TEMPLATES)
+// 5. WORKSHOP – ARCHIV & EINZELSEITE (NEUE TEMPLATES)
 //    Archiv und Einzelseite für WC-Produkte
 //    Die alten Templates werden durch neue WC-basierte ersetzt
 // ============================================================================
 // Neue Templates werden direkt aufgerufen, keine Includes nötig
 
 // ============================================================================
-// 7. LIGHTHOUSE OPTIMIERUNGEN
+// 6. LIGHTHOUSE OPTIMIERUNGEN
 // ============================================================================
 
 /**
@@ -197,20 +174,6 @@ add_action('wp_head', 'micinterart_lh_font_display_swap', 2);
 // ============================================================================
 
 /**
- * Werk-Templates: Belasse bestehende Templates
- */
-function micinterart_werk_templates($template) {
-    if (get_post_type() === 'werk') {
-        $new_template = locate_template('single-werk.php');
-        if ($new_template) {
-            return $new_template;
-        }
-    }
-    return $template;
-}
-add_filter('single_template', 'micinterart_werk_templates');
-
-/**
  * Gedicht-Templates: Belasse bestehende Templates
  */
 function micinterart_gedicht_templates($template) {
@@ -228,30 +191,9 @@ add_filter('single_template', 'micinterart_gedicht_templates');
  * Workshop-Templates: Leite zu WC-Produkt-Templates um
  */
 function micinterart_workshop_templates($template) {
-    // Wenn Workshop CPT noch existiert und aufgerufen wird
     if (get_post_type() === 'workshop') {
-        // Prüfen ob Migration abgeschlossen
-        $migration_done = get_option('micinterart_workshop_migration_done', false);
-        
-        // Wenn Migration abgeschlossen, zur neuen WC-Ansicht umleiten
-        if ($migration_done) {
-            $migration_map = get_option('micinterart_workshop_migration_map', []);
-            $workshop_id = get_the_ID();
-            
-            if (isset($migration_map[$workshop_id])) {
-                $product_url = get_permalink($migration_map[$workshop_id]);
-                if ($product_url) {
-                    wp_redirect($product_url, 301);
-                    exit;
-                }
-            }
-        }
-        
-        // Sonst altes Template laden
-        $new_template = locate_template('single-workshop.php');
-        if ($new_template) {
-            return $new_template;
-        }
+        wp_safe_redirect(home_url('/workshops/'), 301);
+        exit;
     }
     return $template;
 }
@@ -262,23 +204,9 @@ add_filter('single_template', 'micinterart_workshop_templates');
  */
 function micinterart_workshop_archive_template($template) {
     if (is_post_type_archive('workshop')) {
-        $migration_done = get_option('micinterart_workshop_migration_done', false);
-        
-        if ($migration_done) {
-            $workshops_term = get_term_by('slug', 'workshops', 'product_cat');
-            if ($workshops_term) {
-                $product_archive_url = get_term_link($workshops_term);
-                if ($product_archive_url) {
-                    wp_redirect($product_archive_url, 301);
-                    exit;
-                }
-            }
-        }
-        
-        // Sonst altes Template laden
-        $new_template = locate_template('archive-workshop.php');
-        if ($new_template) {
-            return $new_template;
+        $template = locate_template('archive-workshop.php');
+        if ($template) {
+            return $template;
         }
     }
     return $template;
@@ -369,27 +297,8 @@ add_filter('taxonomy_template', 'micinterart_wc_product_cat_archive_template');
  */
 function micinterart_werk_single_template($template) {
     if (is_singular('werk')) {
-        // Prüfen ob Migration abgeschlossen
-        $migration_done = get_option('micinterart_werk_migration_done', false);
-        
-        if ($migration_done) {
-            $migration_map = get_option('micinterart_werk_migration_map', []);
-            $werk_id = get_the_ID();
-            
-            if (isset($migration_map[$werk_id])) {
-                $product_url = get_permalink($migration_map[$werk_id]);
-                if ($product_url) {
-                    wp_redirect($product_url, 301);
-                    exit;
-                }
-            }
-        }
-        
-        // Ansonsten altes Template laden
-        $new_template = locate_template('single-werk.php');
-        if ($new_template) {
-            return $new_template;
-        }
+        wp_safe_redirect(home_url('/galerie/'), 301);
+        exit;
     }
     return $template;
 }

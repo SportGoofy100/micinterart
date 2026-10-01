@@ -347,17 +347,18 @@ $is_en = micinterart_is_english();
                 <?php
                 // Rückverweis zum Werk (oben)
                 $werk_id = micinterart_get_translated_meta($post_id, '_related_werk', true);
+                $werk_product = function_exists('wc_get_product') && $werk_id ? wc_get_product(absint($werk_id)) : false;
                 
-                if ($werk_id && get_post_status($werk_id) === 'publish') :
-                    $werk_title = get_the_title($werk_id);
-                    $werk_link = get_permalink($werk_id);
-                    $werk_thumbnail = get_the_post_thumbnail($werk_id, 'thumbnail');
+                if ($werk_product && $werk_product->get_type() === 'werk' && $werk_product->get_status() === 'publish') :
+                    $werk_title = $werk_product->get_name();
+                    $werk_link = $werk_product->get_permalink();
+                    $werk_thumbnail = $werk_product->get_image('thumbnail');
                     ?>
                     <div class="gedicht-werk-hinweis">
                         <?php if ($werk_thumbnail) : ?>
                             <div class="werk-thumbnail-preview" style="text-align:center;">
                                 <a href="<?php echo esc_url($werk_link); ?>">
-                                    <?php echo $werk_thumbnail; ?>
+                                    <?php echo wp_kses_post($werk_thumbnail); ?>
                                 </a>
                             </div>
                         <?php endif; ?>
@@ -382,7 +383,7 @@ $is_en = micinterart_is_english();
                     
                     <?php
                     // Werk-Link wiederholen (unten)
-                    if ($werk_id && get_post_status($werk_id) === 'publish') :
+                    if ($werk_product && $werk_product->get_type() === 'werk' && $werk_product->get_status() === 'publish') :
                         ?>
                         <div class="gedicht-werk-cta">
                             <a href="<?php echo esc_url($werk_link); ?>" class="button">

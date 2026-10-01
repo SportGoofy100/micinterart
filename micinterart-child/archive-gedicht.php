@@ -309,10 +309,11 @@ $is_en = micinterart_is_english();
                             <?php
                             // Zugehöriges Werk anzeigen
                             $related_werk_id = isset($related_werke_meta[$post_id]) ? absint($related_werke_meta[$post_id]) : 0;
+                            $related_werk = function_exists('wc_get_product') && $related_werk_id ? wc_get_product($related_werk_id) : false;
                             
-                            if ($related_werk_id > 0 && get_post_status($related_werk_id) === 'publish') :
-                                $werk_title = get_the_title($related_werk_id);
-                                $werk_link = get_permalink($related_werk_id);
+                            if ($related_werk && $related_werk->get_type() === 'werk' && $related_werk->get_status() === 'publish') :
+                                $werk_title = $related_werk->get_name();
+                                $werk_link = $related_werk->get_permalink();
                                 ?>
                                 <a href="<?php echo esc_url($werk_link); ?>" class="gedicht-werk-link">
                                     <span>🔗</span>

@@ -9,7 +9,7 @@
  * Theme-Setup: Features aktivieren
  */
 function micinterart_theme_setup() {
-    add_theme_support('post-thumbnails', ['post', 'page', 'workshop', 'werk']); // Liste hier die Typen explizit auf
+    add_theme_support('post-thumbnails', ['post', 'page', 'gedicht', 'product']);
     add_theme_support('html5', ['search-form','comment-form','comment-list','gallery','caption','script','style']);
     add_theme_support('responsive-embeds');
     add_theme_support('custom-logo', ['height'=>100,'width'=>400,'flex-height'=>true,'flex-width'=>true]);
@@ -52,26 +52,22 @@ add_filter('blocksy:archive:post-meta:enabled', 'micinterart_remove_meta_for_ged
  * Post Type Supports sicherstellen
  */
 function micinterart_restore_post_type_supports() {
-    $supports = ['title','editor','thumbnail','excerpt'];
+    $supports = ['title', 'editor', 'thumbnail', 'excerpt'];
     add_post_type_support('post', $supports);
     add_post_type_support('page', $supports);
-    if (post_type_exists('werk')) {
-        add_post_type_support('werk', $supports);
-    }
 }
 add_action('init', 'micinterart_restore_post_type_supports', 100);
 
 /**
- * Beitragsbild-Metabox erzwingen - Jetzt inklusive Workshops
+ * Beitragsbild-Metabox für Seiten und Beiträge erzwingen.
  */
 function micinterart_force_featured_image_box() {
-    // Wir fügen 'workshop' und sicherheitshalber auch 'workshop_thema' hinzu
     add_meta_box(
-        'postimagediv', 
-        __('Beitragsbild', 'micinterart'), 
-        'post_thumbnail_meta_box', 
-        ['post', 'page', 'werk', 'workshop', 'workshop_thema'], 
-        'side', 
+        'postimagediv',
+        __('Beitragsbild', 'micinterart'),
+        'post_thumbnail_meta_box',
+        ['post', 'page', 'gedicht'],
+        'side',
         'low'
     );
 }
@@ -161,7 +157,10 @@ add_filter('image_size_names_choose', 'micinterart_custom_image_sizes_names');
  */
 function micinterart_clear_related_caches($post_id) {
     $post_type = get_post_type($post_id);
-    if (in_array($post_type,['werk','gedicht'])) {
+    $product = $post_type === 'product' && function_exists('wc_get_product') ? wc_get_product($post_id) : false;
+    $is_werk_product = $product && $product->get_type() === 'werk';
+
+    if ($post_type === 'gedicht' || $is_werk_product) {
         global $wpdb;
         $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_mic_gallery_%' OR option_name LIKE '_transient_timeout_mic_gallery_%'");
         if (function_exists('wp_cache_flush')) {

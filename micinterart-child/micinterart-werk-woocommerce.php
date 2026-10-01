@@ -86,7 +86,7 @@ class Micinterart_Werk_WooCommerce {
         // Reiter und Panels für Werk-Produkte
         add_filter('woocommerce_product_data_tabs', [$this, 'add_werk_product_tab']);
         add_action('woocommerce_product_data_panels', [$this, 'render_werk_product_tab']);
-        add_action('woocommerce_process_product_meta', [$this, 'save_werk_product_fields']);
+        add_action('woocommerce_admin_process_product_object', [$this, 'save_werk_product_fields']);
         
         // Admin JS für Tab-Toggling
         add_action('admin_footer', [$this, 'output_admin_type_toggle_js']);
@@ -374,12 +374,12 @@ class Micinterart_Werk_WooCommerce {
     /**
      * Speichert die Werk-Felder
      */
-    public function save_werk_product_fields($post_id) {
-        // Nur für Werk-Produkte
-        $product = wc_get_product($post_id);
-        if (!$product || $product->get_type() !== 'werk') {
+    public function save_werk_product_fields($product) {
+        if (!is_a($product, 'WC_Product') || $product->get_type() !== 'werk') {
             return;
         }
+
+        $post_id = $product->get_id();
         
         // Verifizierung des Nonce-Felds
         if (!isset($_POST['woocommerce_meta_nonce']) || !wp_verify_nonce($_POST['woocommerce_meta_nonce'], 'woocommerce_save_data')) {
@@ -397,21 +397,20 @@ class Micinterart_Werk_WooCommerce {
         
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
-                update_post_meta($post_id, $field, sanitize_text_field($_POST[$field]));
+                $product->update_meta_data($field, sanitize_text_field(wp_unslash($_POST[$field])));
             } else {
-                // Feld löschen wenn nicht mehr vorhanden
-                delete_post_meta($post_id, $field);
+                $product->delete_meta_data($field);
             }
         }
         
         // Weitere Bilder (Textarea mit comma-separierten IDs)
         if (isset($_POST['_werk_additional_images'])) {
-            $images = sanitize_text_field($_POST['_werk_additional_images']);
+            $images = sanitize_text_field(wp_unslash($_POST['_werk_additional_images']));
             // Als comma-separierten String speichern
             $image_ids = array_map('intval', array_filter(explode(',', $images)));
-            update_post_meta($post_id, '_werk_additional_images', implode(',', $image_ids));
+            $product->update_meta_data('_werk_additional_images', implode(',', $image_ids));
         } else {
-            delete_post_meta($post_id, '_werk_additional_images');
+            $product->delete_meta_data('_werk_additional_images');
         }
     }
 }
