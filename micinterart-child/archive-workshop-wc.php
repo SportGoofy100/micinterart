@@ -14,12 +14,12 @@ if (!defined('ABSPATH')) {
 // Check if WooCommerce is active
 if (!class_exists('WooCommerce')) {
     // Fallback: Alte Workshop-Übersicht anzeigen
-    include(get_template_directory() . '/archive-workshop.php');
+    include(get_stylesheet_directory() . '/archive-workshop.php');
     exit;
 }
 
 get_header();
-$is_en = (function_exists('pll_current_language') && pll_current_language() === 'en');
+$is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : (function_exists('pll_current_language') && pll_current_language() === 'en');
 ?>
 
 <style>
@@ -802,7 +802,7 @@ function format_workshop_date($datum) {
     }
     $date_obj = date_create($datum);
     if (!$date_obj) return $datum;
-    return strftime('%A, %d. %B %Y', $date_obj->getTimestamp());
+    return $date_obj->format('l, d. F Y');
 }
 
 function format_workshop_time($post_id) {
@@ -915,7 +915,6 @@ function display_workshop_card($workshop, $is_archiv = false) {
     echo '<a href="' . get_permalink($post->ID) . '" class="workshop-button">Mehr Infos</a>';
     echo '</div>';
     
-    echo '</div>';
     echo '</div>';
 }
 

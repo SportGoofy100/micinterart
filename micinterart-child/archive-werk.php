@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 if (class_exists('WooCommerce')) {
     // Versuche die angepasste WC-Archivseite zu laden
     $new_template = locate_template('archive-werk-wc.php');
-    if ($new_template) {
+    if (!empty($new_template)) {
         include($new_template);
         exit;
     }
