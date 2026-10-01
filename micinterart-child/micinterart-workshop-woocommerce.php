@@ -603,14 +603,11 @@ class Micinterart_Workshop_WooCommerce {
     public function workshop_product_is_purchasable($is_purchasable, $product) {
         if ($product->get_type() === 'workshop') {
             $stock = $product->get_stock_quantity();
-            $status = $product->get_meta('_workshop_status', true);
-            
-            // Nicht kaufbar wenn:
-            // - Ausverkauft
-            // - Status ist "ausgebucht", "beendet" oder "abgesagt"
-            if ((!empty($product->get_meta('_workshop_max_teilnehmer', true)) && $stock <= 0) || in_array($status, ['ausgebucht', 'beendet', 'abgesagt'])) {
-                $is_purchasable = false;
-            }
+            $status = $product->get_meta('_workshop_status', true) ?: 'geplant';
+            $registration_open = in_array($status, ['anmeldung_offen', 'fast_ausgebucht'], true);
+            $has_places = $stock === null || $stock === '' || (int) $stock > 0;
+
+            $is_purchasable = $is_purchasable && $registration_open && $has_places;
         }
         return $is_purchasable;
     }
@@ -632,6 +629,23 @@ class Micinterart_Workshop_WooCommerce {
 
         $remaining_places = min($max_teilnehmer, max(0, (int) $stock_quantity));
         update_post_meta($product->get_id(), '_workshop_current_bookings', $max_teilnehmer - $remaining_places);
+
+        $status = $product->get_meta('_workshop_status', true);
+        if (!in_array($status, ['anmeldung_offen', 'fast_ausgebucht', 'ausgebucht'], true)) {
+            return;
+        }
+
+        if ($remaining_places === 0) {
+            $next_status = 'ausgebucht';
+        } elseif ($remaining_places <= 2) {
+            $next_status = 'fast_ausgebucht';
+        } else {
+            $next_status = 'anmeldung_offen';
+        }
+
+        if ($status !== $next_status) {
+            update_post_meta($product->get_id(), '_workshop_status', $next_status);
+        }
     }
 
     public function sync_workshop_bookings_for_order($order): void {
