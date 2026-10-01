@@ -24,15 +24,13 @@ $werk_query = new WP_Query([
     ]],
 ]);
 
-// Globale Query für Template-Funktionen
-if ($werk_query->have_posts()) {
-    global $wp_query;
-    $temp_wp_query = $wp_query;
-    $wp_query = $werk_query;
-}
+// Globale Query für Template-Funktionen (immer setzen für Pagination)
+global $wp_query;
+$temp_wp_query = $wp_query;
+$wp_query = $werk_query;
 
 get_header();
-$is_en = micinterart_is_english();
+$is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : (function_exists('pll_current_language') && pll_current_language() === 'en');
 
 $archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.php';
 
@@ -41,6 +39,9 @@ $archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.p
 <style>
 <?php if (file_exists($archive_werk_styles_file)) {
     readfile($archive_werk_styles_file);
+} else {
+    // Fallback: Inline-Styles, falls die Datei nicht existiert
+    echo file_get_contents(get_template_directory() . '/micinterart-child/archive-werk-styles.php');
 } ?>
 </style>
 
@@ -50,8 +51,16 @@ $archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.p
         <h1 class="page-title"><?php echo $is_en ? 'Artworks' : esc_html__('Meine Werke', 'micinterart'); ?></h1>
         
         <?php
-        // Beschreibung
-        echo '<div class="archive-description">' . ($is_en ? 'Discover my artistic creations' : 'Entdecke meine künstlerischen Schöpfungen') . '</div>';
+        // Beschreibung - wie in der alten archive-werk.php
+        $post_type_obj = get_post_type_object('product');
+        $description = '';
+        if ($post_type_obj && !empty($post_type_obj->description)) {
+            $description = $post_type_obj->description;
+        }
+        if (empty($description)) {
+            $description = $is_en ? 'Discover my artistic creations' : 'Entdecke meine künstlerischen Schöpfungen';
+        }
+        echo '<div class="archive-description">' . wp_kses_post($description) . '</div>';
         ?>
     </header>
 
@@ -145,19 +154,21 @@ $archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.p
         </div>
 
         <?php
-        // Pagination zurückstellen
+        // Pagination zurücksetzen
         $wp_query = $temp_wp_query;
         wp_reset_postdata();
         
-        // Pagination anzeigen
-        echo '<div class="pagination">';
-        echo paginate_links([
-            'mid_size'           => 2,
-            'prev_text'          => $is_en ? '&laquo; Prev' : __('&laquo; Zurück', 'micinterart'),
-            'next_text'          => $is_en ? 'Next &raquo;' : __('Weiter &raquo;', 'micinterart'),
-            'screen_reader_text' => $is_en ? 'Artworks Navigation' : __('Werke Navigation', 'micinterart'),
-        ]);
-        echo '</div>';
+        // Pagination anzeigen (wie in der alten archive-werk.php)
+        if ($werk_query->max_num_pages > 1) {
+            echo '<div class="pagination">';
+            the_posts_pagination([
+                'mid_size'           => 2,
+                'prev_text'          => $is_en ? '&laquo; Prev' : __('&laquo; Zurück', 'micinterart'),
+                'next_text'          => $is_en ? 'Next &raquo;' : __('Weiter &raquo;', 'micinterart'),
+                'screen_reader_text' => $is_en ? 'Artworks Navigation' : __('Werke Navigation', 'micinterart'),
+            ]);
+            echo '</div>';
+        }
         
     <?php else : ?>
         
@@ -165,7 +176,9 @@ $archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.p
             <p><?php echo $is_en ? 'No artworks found.' : esc_html__('Keine Werke gefunden.', 'micinterart'); ?></p>
         </div>
         
-    <?php endif; wp_reset_query(); ?>
+    <?php endif; ?>
+    
+    <?php wp_reset_query();
 
 </main>
 

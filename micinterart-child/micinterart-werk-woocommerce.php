@@ -96,9 +96,15 @@ class Micinterart_Werk_WooCommerce {
     }
     
     /**
-     * Fügt Werk als Produkttyp hinzu
+     * Fügt Werk als Produkttyp hinzu und entfernt unnötige Typen
      */
     public function add_werk_product_type($types) {
+        // Entferne unnötige Produkttypen
+        unset($types['grouped']);   // Gruppiertes Produkt
+        unset($types['external']); // Externes/Partnerprodukt
+        unset($types['variable']); // Variables Produkt
+        
+        // Füge Werk hinzu
         $types['werk'] = __('Werk', 'micinterart');
         return $types;
     }
