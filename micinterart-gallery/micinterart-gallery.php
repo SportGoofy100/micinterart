@@ -49,6 +49,7 @@ class MicinterartGallery {
         add_action('init', [$this, 'register_taxonomies']);
         add_action('init', [$this, 'register_gallery_block']);
         add_action('add_meta_boxes', [$this, 'add_metaboxes']);
+        add_action('admin_menu', [$this, 'remove_legacy_cpt_admin_menus'], 999);
         add_action('save_post_gedicht', [$this, 'save_gedicht_meta']);
         add_action('save_post_gedicht', [$this, 'save_gedicht_relation_meta']);
         add_action('save_post_gedicht', [$this, 'sync_gedicht_on_save'], 20);
@@ -74,6 +75,12 @@ class MicinterartGallery {
 
     public function deactivate(): void {
         flush_rewrite_rules();
+    }
+
+    public function remove_legacy_cpt_admin_menus(): void {
+        foreach (['edit.php?post_type=werk', 'edit.php?post_type=workshop', 'edit.php?post_type=workshop_thema'] as $menu_slug) {
+            remove_menu_page($menu_slug);
+        }
     }
 
     public function register_post_types(): void {
