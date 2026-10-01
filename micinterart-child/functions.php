@@ -334,3 +334,35 @@ function micinterart_dequeue_wc_assets() {
 }
 // add_action('wp_enqueue_scripts', 'micinterart_dequeue_wc_assets', 999);
 // DEAKTIVIERT: Besser WC-Styles beibehalten für Kompatibilität
+
+// ============================================================================
+// REWRITE-REGELN FÜR WERKE
+// ============================================================================
+
+/**
+ * Rewrite-Regel: /werke/ → Produktkategorie "werke"
+ * Analog zu /workshops/ für eine saubere URL-Struktur
+ */
+function micinterart_werke_rewrite_rules() {
+    add_rewrite_rule(
+        '^werke/?$',
+        'index.php?product_cat=werke',
+        'top'
+    );
+}
+add_action('init', 'micinterart_werke_rewrite_rules', 10, 0);
+
+/**
+ * Template für Produktkategorie "werke" verwenden
+ * Lädt die archive-werk-wc.php für eine konsistente Darstellung
+ */
+function micinterart_werke_category_template($template) {
+    if (is_product_category('werke')) {
+        $new_template = locate_template('archive-werk-wc.php');
+        if ($new_template) {
+            return $new_template;
+        }
+    }
+    return $template;
+}
+add_filter('product_cat_template', 'micinterart_werke_category_template', 20);
