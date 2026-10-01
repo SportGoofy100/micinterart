@@ -200,18 +200,18 @@ function micinterart_workshop_templates($template) {
 add_filter('single_template', 'micinterart_workshop_templates');
 
 /**
- * Workshop-Archiv: Leite zur WC-Produktkategorie um
+ * Workshop-Archiv: Erzwinge die WooCommerce-Produktübersicht als finales Template.
  */
 function micinterart_workshop_archive_template($template) {
     if (is_post_type_archive('workshop')) {
-        $template = locate_template('archive-workshop.php');
-        if ($template) {
-            return $template;
+        $workshop_template = locate_template('archive-workshop-wc.php');
+        if ($workshop_template) {
+            return $workshop_template;
         }
     }
     return $template;
 }
-add_filter('archive_template', 'micinterart_workshop_archive_template');
+add_filter('template_include', 'micinterart_workshop_archive_template', 99);
 
 /**
  * Werk-Archiv: Zeige WC-Produkte statt altem CPT
