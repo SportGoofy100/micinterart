@@ -650,7 +650,7 @@ $workshop_category_type = static function($product_id) {
         if (in_array($category->slug, ['kinderworkshop', 'kinderworkshops'], true)) {
             return 'kinder';
         }
-        if (in_array($category->slug, ['erwachsenenworkshop', 'erwachsenenworkshops', 'atelierkurse'], true)) {
+        if (in_array($category->slug, ['erwachsenenworkshop', 'erwachsenenworkshops', 'atelierkurse', 'workshops'], true)) {
             return 'erwachsene';
         }
     }
@@ -660,21 +660,28 @@ $workshop_category_type = static function($product_id) {
 
 $workshop_product_tax_query = [
     'relation' => 'OR',
-    [
-        'taxonomy' => 'product_type',
-        'field' => 'slug',
-        'terms' => 'workshop',
-    ],
 ];
 
-if ($workshops_term) {
-    $workshop_product_tax_query[] = [
-        'taxonomy' => 'product_cat',
-        'field' => 'term_id',
-        'terms' => $workshops_term->term_id,
-        'include_children' => true,
-    ];
+// Primär nach Produktkategorien filtern
+$workshop_cat_terms = ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'];
+foreach ($workshop_cat_terms as $cat_slug) {
+    $cat_term = get_term_by('slug', $cat_slug, 'product_cat');
+    if ($cat_term) {
+        $workshop_product_tax_query[] = [
+            'taxonomy' => 'product_cat',
+            'field' => 'term_id',
+            'terms' => $cat_term->term_id,
+            'include_children' => true,
+        ];
+    }
 }
+
+// Zusätzlich nach Produkttyp filtern
+$workshop_product_tax_query[] = [
+    'taxonomy' => 'product_type',
+    'field' => 'slug',
+    'terms' => 'workshop',
+];
 
 if (!empty($workshop_product_tax_query)) {
     // Alle Workshops holen (upcoming)
