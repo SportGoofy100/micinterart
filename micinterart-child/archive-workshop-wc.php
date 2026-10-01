@@ -642,6 +642,15 @@ $erwachsenen_upcoming = [];
 $archiv_workshops = [];
 $workshop_category_type = static function($product_id) {
     $categories = get_the_terms($product_id, 'product_cat');
+    
+    // Zuerst prüfen ob es ein Workshop-Produkt ist
+    $product = wc_get_product($product_id);
+    if ($product && $product->get_type() === 'workshop') {
+        if (!$categories || is_wp_error($categories)) {
+            return 'erwachsene';
+        }
+    }
+    
     if (!$categories || is_wp_error($categories)) {
         return '';
     }
@@ -653,6 +662,11 @@ $workshop_category_type = static function($product_id) {
         if (in_array($category->slug, ['erwachsenenworkshop', 'erwachsenenworkshops', 'atelierkurse', 'workshops'], true)) {
             return 'erwachsene';
         }
+    }
+
+    if ($product && $product->get_type() === 'workshop') {
+        return 'erwachsene';
+
     }
 
     return '';
