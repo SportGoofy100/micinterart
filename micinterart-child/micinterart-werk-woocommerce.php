@@ -168,11 +168,10 @@ class Micinterart_Werk_WooCommerce {
      * Fügt Werk-Reiter zum Produkt-Editor hinzu
      */
     public function add_werk_product_tab($tabs) {
-        // Immer registrieren; Sichtbarkeit steuert WooCommerce per Klasse
+        // Immer sichtbar machen, Sichtbarkeit wird über JS gesteuert
         $tabs['werk'] = [
             'label' => __('Werk-Details', 'micinterart'),
             'target' => 'werk_product_data',
-            'class' => ['show_if_werk'],
             'priority' => 5,
         ];
         
@@ -184,7 +183,7 @@ class Micinterart_Werk_WooCommerce {
             }
         }
         
-        // Für Werke nur nicht relevante Tabs ausblenden (Linked Product, Attribute, Advanced)
+        // Für Werke nicht relevante Tabs ausblenden (Linked Product, Attribute, Advanced)
         // Versand und Lager bleiben sichtbar, da Werke physische Produkte sind
         $tabs_to_hide = ['linked_product', 'attribute', 'advanced'];
         foreach ($tabs_to_hide as $key) {
@@ -252,11 +251,18 @@ class Micinterart_Werk_WooCommerce {
             
             function toggleWerkTypeOptions() {
                 var productType = $('select#product-type').val();
+                var $werkPanel = $('#werk_product_data');
+                
                 // Für Werke alle Typ-Optionen ausblenden (außer Virtuell - aber Virtuell soll DEAKTIVIERT sein)
                 if (productType === 'werk') {
                     $typeOptions.not(':has(input[name="_virtual"])').hide();
                     // Virtuell deaktivieren für Werke (nicht automatisch aktiviert)
                     $typeOptions.has('input[name="_virtual"]').show().find('input').prop('checked', false).prop('disabled', false);
+                    // Werk-Panel anzeigen
+                    $werkPanel.closest('.panel-wrap').show();
+                } else {
+                    // Werk-Panel verstecken, wenn nicht Werk-Typ
+                    $werkPanel.closest('.panel-wrap').hide();
                 }
             }
             
@@ -275,13 +281,19 @@ class Micinterart_Werk_WooCommerce {
         global $post;
         
         $product_id = $post->ID ?? 0;
-        $product = wc_get_product($product_id);
+        $product = $post ? wc_get_product($post->ID) : null;
         
-        if (!$product || $product->get_type() !== 'werk') {
+        // Prüfe ob wir auf einer Produkt-Bearbeitungsseite sind
+        if (!function_exists('get_current_screen')) {
             return;
         }
         
-        // Meta-Werte laden
+        $screen = get_current_screen();
+        if (!$screen || $screen->id !== 'product') {
+            return;
+        }
+        
+        // Meta-Werte laden (auch wenn Produkt noch nicht gespeichert ist)
         $materials = get_post_meta($product_id, '_werk_materials', true);
         $dimensions = get_post_meta($product_id, '_werk_dimensions', true);
         $year = get_post_meta($product_id, '_werk_year', true);
