@@ -116,7 +116,23 @@ class MicinterartGallery {
         ]);
     }
 
-    // ✅ KORRIGIERT: <?php entfernt!
+    public function register_taxonomies(): void {
+        register_taxonomy('serie', ['product'], [
+            'labels' => [
+                'name' => 'Serien',
+                'singular_name' => 'Serie',
+            ],
+            'hierarchical' => true,
+            'public' => true,
+            'show_ui' => true,
+            'show_admin_column' => true,
+            'show_in_rest' => true,
+            'rewrite' => ['slug' => 'serie'],
+        ]);
+    }
+
+    public function sync_page_on_polylang_save($post_id, $translations) {
+        if (!function_exists('pll_get_post_language')) return;
 
         $post = get_post($post_id);
         if (!$post || $post->post_type !== 'page') return;
