@@ -93,6 +93,40 @@ class Micinterart_Werk_WooCommerce {
         
         // Standardfelder ausblenden
         add_action('woocommerce_product_options_general_product_data', [$this, 'hide_standard_fields_for_werk']);
+
+        // Frontend: Werk-Details auf der Produktseite anzeigen (nach dem Kurztext)
+        add_action('woocommerce_single_product_summary', [$this, 'render_werk_details_frontend'], 25);
+    }
+
+    /**
+     * Zeigt Jahr, Maße, Materialien usw. auf der Produktseite eines Werks
+     */
+    public function render_werk_details_frontend() {
+        $product = wc_get_product(get_the_ID());
+        if (!$product || $product->get_type() !== 'werk') {
+            return;
+        }
+
+        $is_en = function_exists('micinterart_is_english') && micinterart_is_english();
+        $rows = [
+            ($is_en ? 'Year' : 'Jahr')                  => $product->get_meta('_werk_year', true),
+            ($is_en ? 'Dimensions' : 'Maße')            => $product->get_meta('_werk_dimensions', true),
+            ($is_en ? 'Materials' : 'Materialien')      => $product->get_meta('_werk_materials', true),
+            ($is_en ? 'Represented by' : 'Vertreten durch') => $product->get_meta('_werk_represented', true),
+            ($is_en ? 'Exhibited at' : 'Ausgestellt bei')   => $product->get_meta('_werk_exhibited', true),
+        ];
+        $rows = array_filter($rows, function ($value) {
+            return trim((string) $value) !== '';
+        });
+        if (empty($rows)) {
+            return;
+        }
+
+        echo '<ul class="werk-details">';
+        foreach ($rows as $label => $value) {
+            echo '<li><strong>' . esc_html($label) . ':</strong> ' . esc_html($value) . '</li>';
+        }
+        echo '</ul>';
     }
     
     /**
