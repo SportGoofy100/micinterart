@@ -748,10 +748,8 @@ class Micinterart_Workshop_WooCommerce {
     }
 }
 
-// Initialisierung - MUSS FRÜH sein, damit der Produkttyp registriert wird
-function micinterart_workshop_wc_init() {
-    Micinterart_Workshop_WooCommerce::get_instance();
-}
+// Die Initialisierung (get_instance) erfolgt in functions.php
+// und muss früh genug passieren, damit der Produkttyp registriert wird.
 
 // Hilfsfunktion zum Prüfen ob ein Produkt ein Workshop ist
 function micinterart_wc_is_workshop_product($product) {

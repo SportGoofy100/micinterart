@@ -100,6 +100,54 @@ class Micinterart_Werk_WooCommerce {
 
         // Kaufbar nur bei Status "verfügbar"
         add_filter('woocommerce_is_purchasable', [$this, 'werk_product_is_purchasable'], 10, 2);
+
+        // Nach bezahlter Bestellung Status auf "verkauft" setzen, bei Storno/Erstattung zurück
+        add_action('woocommerce_order_status_processing', [$this, 'mark_werke_sold']);
+        add_action('woocommerce_order_status_completed', [$this, 'mark_werke_sold']);
+        add_action('woocommerce_order_status_cancelled', [$this, 'release_werke']);
+        add_action('woocommerce_order_status_refunded', [$this, 'release_werke']);
+    }
+
+    /**
+     * Bezahlte Bestellung (in Bearbeitung / abgeschlossen): enthaltene Werke als verkauft markieren
+     */
+    public function mark_werke_sold($order_id) {
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return;
+        }
+
+        foreach ($order->get_items('line_item') as $item) {
+            $product = $item->get_product();
+            if (!$product || $product->get_type() !== 'werk') {
+                continue;
+            }
+            update_post_meta($product->get_id(), '_werk_status', 'verkauft');
+            update_post_meta($product->get_id(), '_werk_sold_order', (int) $order_id);
+        }
+    }
+
+    /**
+     * Stornierte oder erstattete Bestellung: Werke wieder verfügbar machen,
+     * aber nur, wenn genau diese Bestellung sie als verkauft markiert hat
+     */
+    public function release_werke($order_id) {
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return;
+        }
+
+        foreach ($order->get_items('line_item') as $item) {
+            $product = $item->get_product();
+            if (!$product || $product->get_type() !== 'werk') {
+                continue;
+            }
+            if ((int) get_post_meta($product->get_id(), '_werk_sold_order', true) !== (int) $order_id) {
+                continue;
+            }
+            update_post_meta($product->get_id(), '_werk_status', 'verfuegbar');
+            delete_post_meta($product->get_id(), '_werk_sold_order');
+        }
     }
 
     /**
@@ -471,11 +519,7 @@ class Micinterart_Werk_WooCommerce {
     }
 }
 
-// Initialisierung
-function micinterart_werk_wc_init() {
-    Micinterart_Werk_WooCommerce::get_instance();
-}
-add_action('after_setup_theme', 'micinterart_werk_wc_init', 25);
+// Die Initialisierung (get_instance) erfolgt in functions.php
 
 // Hilfsfunktion zum Prüfen ob ein Produkt ein Werk ist
 function micinterart_wc_is_werk_product($product) {

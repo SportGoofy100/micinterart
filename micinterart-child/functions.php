@@ -154,24 +154,12 @@ function micinterart_lh_font_display_swap() {
 add_action('wp_head', 'micinterart_lh_font_display_swap', 2);
 
 // ============================================================================
-// 8. VERALTETE WORKSHOP-INCLUDES (DEAKTIVIERT)
-//    Die folgenden Includes werden nicht mehr geladen, da Workshops nun
-//    über WooCommerce verwaltet werden
+// 8. ALTE WORKSHOP-INCLUDES
+//    Workshops werden über WooCommerce verwaltet. Die früheren Includes
+//    (CF7, Preisrechner, Plätze, Rabatt, Themen, Gutscheine, ...) wurden aus
+//    dem Repository entfernt und sind in der Git-Historie nachlesbar.
+//    includes/workshop-admin.php liegt noch im Ordner, wird aber nicht geladen.
 // ============================================================================
-// 
-// DEAKTIVIERT (ersetzt durch WooCommerce):
-// - workshop-cf7.php (Contact Form 7 Integration)
-// - workshop-preisrechner.php (Preisrechner und PayPal-Buttons)
-// - workshop-plaetze.php (Plätze-Zähler)
-// - workshop-rabatt.php (Rabatt-System - teilweise durch WC ersetzt)
-// - workshop-thema-bookings.php (Thema-Buchungen)
-// - workshop-thema-sync.php (Thema-Synchronisation)
-// - workshop-monat.php (Workshop-Monate CPT)
-// - gutschein-integration.php (Gutscheine - durch WC Coupons ersetzt)
-//
-// BEIBEHALTEN (noch benötigt für "Was dich erwartet" Felder):
-// - workshop-admin.php (wird noch für CPT Workshop benötigt, bis Migration abgeschlossen)
-//
 
 // ============================================================================
 // 9. TEMPLATE-FILTER (für WC-Workshop-Produkte)
@@ -244,58 +232,8 @@ function micinterart_render_wc_default_single_product() {
     get_footer('shop');
 }
 
-/**
- * WC-Produkt-Templates: Verwende angepasste Workshop-Templates für WC-Produkte
- */
-function micinterart_wc_product_templates($template) {
-    if (is_singular('product')) {
-        $product_id = get_the_ID();
-        
-        // Prüfen ob es ein Workshop-Produkt ist
-        $product = wc_get_product($product_id);
-        $is_workshop = false;
-        
-        // 1. Produkttyp direkt prüfen
-        if ($product && $product->get_type() === 'workshop') {
-            $is_workshop = true;
-        }
-        
-        // 2. Hilfsfunktion prüfen
-        if (!$is_workshop && function_exists('micinterart_wc_is_workshop_product') && micinterart_wc_is_workshop_product($product)) {
-            $is_workshop = true;
-        }
-        
-        // 3. Kategorie prüfen
-        if (!$is_workshop) {
-            $terms = get_the_terms($product_id, 'product_cat');
-            if ($terms && !is_wp_error($terms)) {
-                foreach ($terms as $term) {
-                    if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
-                        $is_workshop = true;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        // 4. Workshop-Metafelder als letzten Fallback prüfen
-        if (!$is_workshop) {
-            if (get_post_meta($product_id, '_workshop_datum', true) || get_post_meta($product_id, '_workshop_ort', true) || get_post_meta($product_id, '_workshop_max_teilnehmer', true)) {
-                $is_workshop = true;
-            }
-        }
-        
-        if ($is_workshop) {
-            // Verwende unser angepasstes Template
-            $new_template = locate_template('single-product-workshop.php');
-            if ($new_template) {
-                return $new_template;
-            }
-        }
-    }
-    return $template;
-}
-add_filter('single_product_template', 'micinterart_wc_product_templates');
+// Hinweis: Die Wahl zwischen Workshop- und Standard-Produktseite trifft single-product.php
+// (WooCommerce lädt diese Datei aus dem Theme).
 
 /**
  * WC-Produktkategorie-Archiv: Verwende angepasstes Workshop-Archiv-Template
