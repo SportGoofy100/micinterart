@@ -226,18 +226,24 @@ class Micinterart_Werk_WooCommerce {
      * oder beim gerade bearbeiteten Produkt)
      */
     private function product_type_is_in_use($type) {
-        // Das gerade bearbeitete Produkt hat diesen Typ
+        // Der Filter läuft pro Seitenaufruf mehrfach: Ergebnis zwischenspeichern
+        static $cache = [];
         $edited_id = isset($_GET['post']) ? absint($_GET['post']) : 0;
-        if ($edited_id && get_post_type($edited_id) === 'product' && class_exists('WC_Product_Factory')) {
-            if (WC_Product_Factory::get_product_type($edited_id) === $type) {
-                return true;
-            }
+        $cache_key = $type . ':' . $edited_id;
+        if (isset($cache[$cache_key])) {
+            return $cache[$cache_key];
+        }
+
+        // Das gerade bearbeitete Produkt hat diesen Typ
+        if ($edited_id && get_post_type($edited_id) === 'product' && class_exists('WC_Product_Factory')
+            && WC_Product_Factory::get_product_type($edited_id) === $type) {
+            return $cache[$cache_key] = true;
         }
 
         // Irgendein Produkt (auch Entwurf, privat, Papierkorb) hat diesen Typ
         $ids = get_posts([
             'post_type'      => 'product',
-            'post_status'    => 'any',
+            'post_status'    => array_keys(get_post_stati()),
             'posts_per_page' => 1,
             'fields'         => 'ids',
             'no_found_rows'  => true,
@@ -248,7 +254,7 @@ class Micinterart_Werk_WooCommerce {
             ]],
         ]);
 
-        return !empty($ids);
+        return $cache[$cache_key] = !empty($ids);
     }
     
     /**
