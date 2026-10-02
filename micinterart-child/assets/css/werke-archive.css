@@ -613,3 +613,208 @@
     margin-top: 4px;
     font-size: 0.95em;
 }
+
+/* ============================================================================
+   Tablet und Smartphone (Shop, Atelier-Shop, Werk-Archiv)
+   ============================================================================ */
+@media (max-width: 900px) {
+    .werke-archive {
+        padding: 24px 12px 40px;
+        min-height: 0;
+    }
+
+    .page-header {
+        padding: 28px 16px;
+        margin-bottom: 30px;
+    }
+
+    .page-title {
+        font-size: clamp(2.2em, 9vw, 3em);
+        letter-spacing: 2px;
+    }
+
+    .archive-description {
+        font-size: 1em;
+        margin-top: 10px;
+    }
+
+    /* Auf Tablets zwei Spalten */
+    .werke-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        padding: 0;
+    }
+
+    /* Kunstwerke nicht zu stark beschneiden */
+    .werk-thumbnail {
+        height: 200px;
+    }
+
+    .shop-item .werk-thumbnail {
+        height: 210px;
+    }
+
+    .werk-content {
+        padding: 16px;
+    }
+
+    .shop-section {
+        margin-bottom: 45px;
+    }
+
+    .shop-section-header {
+        padding: 0;
+    }
+
+    .shop-section-title {
+        font-size: 2em;
+    }
+
+    /* Links gut antippbar */
+    .shop-section-link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        padding-bottom: 0;
+    }
+
+    .shop-tiles {
+        padding: 0;
+        margin-bottom: 40px;
+    }
+
+    .shop-tile {
+        min-height: 240px;
+    }
+
+    .pagination {
+        flex-wrap: wrap;
+        margin-top: 35px;
+        padding: 10px 0;
+    }
+
+    .pagination a,
+    .pagination span.current {
+        min-width: 44px;
+        height: 44px;
+    }
+}
+
+/* Smartphones: eine Spalte */
+@media (max-width: 560px) {
+    .werke-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .werk-thumbnail {
+        height: 220px;
+    }
+
+    .shop-item .werk-thumbnail {
+        height: 230px;
+    }
+
+    .shop-tile {
+        min-height: 220px;
+    }
+
+    .shop-tile-title {
+        font-size: 2em;
+    }
+
+    .shop-tile-body {
+        padding: 60px 18px 18px;
+    }
+
+    .shop-tile-preview .shop-item .werk-thumbnail {
+        flex-basis: 96px;
+        width: 96px;
+        min-height: 96px;
+    }
+}
+
+/* Touch-Geräte: keine Hover-Effekte, die nach dem Antippen "hängen bleiben" */
+@media (hover: none) {
+    .werk-item:hover,
+    .shop-tile:hover,
+    .shop-tile-preview .werk-item:hover {
+        transform: none;
+    }
+
+    .werk-item:hover .werk-thumbnail img,
+    .shop-tile:hover .shop-tile-image {
+        transform: none;
+    }
+
+    .shop-tile:hover .shop-tile-cta {
+        transform: none;
+    }
+
+    .werk-thumbnail-overlay {
+        display: none;
+    }
+}
+
+/* Bewegung reduzieren, wenn das Gerät es wünscht */
+@media (prefers-reduced-motion: reduce) {
+    .werk-item,
+    .shop-tile,
+    .shop-tile-image,
+    .werk-thumbnail img,
+    .shop-tile-cta {
+        animation: none;
+        transition: none;
+    }
+}
+
+/* Navigation zwischen den Shop-Bereichen */
+.shop-subnav {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    max-width: 1400px;
+    margin: -20px auto 35px;
+    padding: 0 20px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.shop-subnav::-webkit-scrollbar {
+    display: none;
+}
+
+.shop-subnav-link {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 20px;
+    border: 2px solid #e0e0e0;
+    border-radius: 999px;
+    background: #fff;
+    color: #2c2c2c;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.shop-subnav-link:hover,
+.shop-subnav-link:focus-visible {
+    border-color: #d4af37;
+}
+
+.shop-subnav-link.is-active {
+    background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+    border-color: #d4af37;
+    color: #d4af37;
+}
+
+@media (max-width: 900px) {
+    .shop-subnav {
+        justify-content: flex-start;
+        margin: -10px -12px 25px;
+        padding: 0 12px 4px;
+    }
+}

@@ -1,0 +1,151 @@
+/* Micinterart: allgemeine Frontend-Styles (Mobil/Tablet, Produktseiten, Workshop-Seiten)
+   Die Workshop-Vorlagen enthalten eigene Inline-Styles, die im Dokument später stehen.
+   Die Selektoren hier beginnen deshalb mit "body", damit sie Vorrang haben. */
+
+/* Werk-Details auf der Produktseite */
+.werk-details {
+    list-style: none;
+    margin: 0 0 1.2em;
+    padding: 0;
+    font-size: 0.95em;
+    line-height: 1.7;
+}
+
+.werk-details li + li {
+    margin-top: 2px;
+}
+
+/* Tablet und Smartphone */
+@media (max-width: 900px) {
+    /* Mindestens 16px in Eingabefeldern, sonst zoomt iOS beim Antippen */
+    body input[type="text"],
+    body input[type="email"],
+    body input[type="tel"],
+    body input[type="number"],
+    body input[type="password"],
+    body input[type="search"],
+    body select,
+    body textarea {
+        font-size: 16px;
+    }
+
+    body .single_add_to_cart_button,
+    body .wc-block-components-checkout-place-order-button {
+        min-height: 48px;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Workshop-Produktseite */
+    body .workshop-single-container {
+        padding: 30px 16px;
+    }
+
+    body .workshop-single-title {
+        font-size: 2em;
+        letter-spacing: 1px;
+    }
+
+    body .workshop-content {
+        font-size: 1em;
+        line-height: 1.7;
+    }
+
+    body .workshop-info-box,
+    body .workshop-expectations {
+        padding: 20px;
+    }
+
+    body .workshop-anmeldung-box {
+        padding: 20px 16px;
+        margin: 30px 0;
+    }
+
+    body .workshop-anmeldung-title {
+        font-size: 1.6em;
+    }
+
+    body .workshop-quantity-step {
+        width: 48px;
+        height: 48px;
+    }
+
+    body .workshop-quantity-input {
+        width: 80px;
+        height: 48px;
+    }
+
+    body .workshop-anmeldung-button,
+    body .workshop-cta-inline a {
+        min-height: 48px;
+    }
+
+    body .workshop-expectations-grid,
+    body .related-workshops-grid {
+        grid-template-columns: 1fr;
+    }
+
+    body .related-workshops h3 {
+        font-size: 1.6em;
+    }
+
+    body .related-workshop-card img {
+        height: 160px;
+    }
+
+    /* Schwebender Button über der Home-Leiste von iPhones */
+    body .workshop-cta-floating {
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Workshop-Übersicht */
+    body .hero-content {
+        padding: 24px 20px;
+    }
+
+    body .hero-title {
+        font-size: 1.8em;
+    }
+
+    body .hero-meta-item,
+    body .workshop-meta-item {
+        flex-wrap: wrap;
+    }
+
+    body .hero-meta-item strong,
+    body .workshop-meta-item strong {
+        min-width: 0;
+    }
+
+    body .hero-button,
+    body .workshop-button {
+        display: block;
+        min-height: 44px;
+        line-height: 24px;
+        text-align: center;
+    }
+
+    body .workshop-footer {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    body .workshop-thumbnail {
+        height: 200px;
+    }
+
+    body .section-title {
+        font-size: 2em;
+    }
+}
+
+/* Sehr schmale Geräte: keine Karten mit Mindestbreite, die überlaufen */
+@media (max-width: 380px) {
+    body .workshop-single-container {
+        padding: 24px 12px;
+    }
+
+    body .workshop-info-grid {
+        gap: 14px;
+    }
+}

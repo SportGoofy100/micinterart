@@ -263,6 +263,10 @@ $tiles = [
         <?php endif; ?>
     </header>
 
+    <?php if ($is_atelier_page) {
+        micinterart_shop_subnav('atelier');
+    } ?>
+
     <?php if (!$is_atelier_page) : ?>
         <div class="shop-tiles">
             <?php foreach ($tiles as $tile) :

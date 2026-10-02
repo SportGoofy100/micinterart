@@ -49,6 +49,8 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
         ?>
     </header>
 
+    <?php micinterart_shop_subnav('werke'); ?>
+
     <?php if ($werk_query->have_posts()) : ?>
         
         <div class="werke-grid">

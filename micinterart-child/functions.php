@@ -307,6 +307,22 @@ function micinterart_dequeue_wc_assets() {
 // ============================================================================
 
 /**
+ * Allgemeine Frontend-Styles: Mobil/Tablet, Werk-Details, Workshop-Seiten (assets/css/frontend.css)
+ */
+function micinterart_enqueue_frontend_styles() {
+    $css_path = get_stylesheet_directory() . '/assets/css/frontend.css';
+    if (file_exists($css_path)) {
+        wp_enqueue_style(
+            'micinterart-frontend',
+            get_stylesheet_directory_uri() . '/assets/css/frontend.css',
+            [],
+            filemtime($css_path)
+        );
+    }
+}
+add_action('wp_enqueue_scripts', 'micinterart_enqueue_frontend_styles', 20);
+
+/**
  * Kartendesign für Shop-Seite und Werk-Archiv (assets/css/werke-archive.css)
  */
 function micinterart_enqueue_archive_styles() {
@@ -330,6 +346,29 @@ function micinterart_enqueue_archive_styles() {
     }
 }
 add_action('wp_enqueue_scripts', 'micinterart_enqueue_archive_styles');
+
+/**
+ * Schmale Navigationsleiste zwischen den Shop-Bereichen (auf kleinen Bildschirmen wischbar).
+ *
+ * @param string $active 'shop', 'workshops', 'werke' oder 'atelier'
+ */
+function micinterart_shop_subnav($active) {
+    $items = [
+        'shop'      => ['Shop', 'Shop', function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/shop/')],
+        'workshops' => ['Workshops', 'Workshops', get_post_type_archive_link('workshop') ?: home_url('/workshops/')],
+        'werke'     => ['Werke', 'Artworks', home_url('/werke/')],
+        'atelier'   => ['Atelier-Shop', 'Atelier Shop', home_url('/atelier-shop/')],
+    ];
+
+    echo '<nav class="shop-subnav" aria-label="' . esc_attr(micinterart_t('Shop-Bereiche', 'Shop areas')) . '">';
+    foreach ($items as $key => $item) {
+        $is_active = ($key === $active);
+        echo '<a class="shop-subnav-link' . ($is_active ? ' is-active' : '') . '" href="' . esc_url($item[2]) . '"'
+            . ($is_active ? ' aria-current="page"' : '') . '>'
+            . esc_html(micinterart_t($item[0], $item[1])) . '</a>';
+    }
+    echo '</nav>';
+}
 
 /**
  * Preis eines Werks als HTML; ohne hinterlegten Preis "Preis auf Anfrage".
