@@ -29,6 +29,20 @@ if ($queried_object && isset($queried_object->taxonomy) && $queried_object->taxo
     }
 }
 
+// Werke-Kategorie: Werk-Archiv (Produkte vom Typ 'werk') anzeigen
+$is_werke_category = $queried_object
+    && isset($queried_object->taxonomy, $queried_object->slug)
+    && $queried_object->taxonomy === 'product_cat'
+    && $queried_object->slug === 'werke';
+
+if ($is_werke_category) {
+    $werk_template = locate_template('archive-werk-wc.php');
+    if ($werk_template) {
+        include($werk_template);
+        exit;
+    }
+}
+
 if ($is_workshop_category) {
     // Workshop-Kategorie: Verwende unser angepasstes Template
     $workshop_template = locate_template('archive-workshop-wc.php');

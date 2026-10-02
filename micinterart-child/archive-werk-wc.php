@@ -24,11 +24,6 @@ $werk_query = new WP_Query([
     ]],
 ]);
 
-// Globale Query für Template-Funktionen (immer setzen für Pagination)
-global $wp_query;
-$temp_wp_query = $wp_query;
-$wp_query = $werk_query;
-
 get_header();
 $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : (function_exists('pll_current_language') && pll_current_language() === 'en');
 
@@ -36,14 +31,11 @@ $archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.p
 
 ?>
 
-<style>
-<?php if (file_exists($archive_werk_styles_file)) {
+<?php
+// archive-werk-styles.php enthält bereits das umschließende <style>-Element
+if (file_exists($archive_werk_styles_file)) {
     readfile($archive_werk_styles_file);
-} else {
-    // Fallback: Inline-Styles, falls die Datei nicht existiert
-    echo file_get_contents(get_template_directory() . '/micinterart-child/archive-werk-styles.php');
 } ?>
-</style>
 
 <main id="primary" class="site-main werke-archive">
     
@@ -154,22 +146,24 @@ $archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.p
         </div>
 
         <?php
-        // Pagination zurücksetzen
-        $wp_query = $temp_wp_query;
         wp_reset_postdata();
-        
-        // Pagination anzeigen (wie in der alten archive-werk.php)
+
+        // Pagination anzeigen (auf Basis der Werk-Query, nicht der Hauptquery)
         if ($werk_query->max_num_pages > 1) {
             echo '<div class="pagination">';
-            the_posts_pagination([
-                'mid_size'           => 2,
-                'prev_text'          => $is_en ? '&laquo; Prev' : __('&laquo; Zurück', 'micinterart'),
-                'next_text'          => $is_en ? 'Next &raquo;' : __('Weiter &raquo;', 'micinterart'),
-                'screen_reader_text' => $is_en ? 'Artworks Navigation' : __('Werke Navigation', 'micinterart'),
+            echo paginate_links([
+                'base'      => trailingslashit(get_pagenum_link(1)) . '%_%',
+                'format'    => 'page/%#%/',
+                'current'   => max(1, (int) $paged),
+                'total'     => (int) $werk_query->max_num_pages,
+                'mid_size'  => 2,
+                'prev_text' => $is_en ? '&laquo; Prev' : __('&laquo; Zurück', 'micinterart'),
+                'next_text' => $is_en ? 'Next &raquo;' : __('Weiter &raquo;', 'micinterart'),
             ]);
             echo '</div>';
         }
-        
+        ?>
+
     <?php else : ?>
         
         <div class="no-results">
@@ -178,7 +172,7 @@ $archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.p
         
     <?php endif; ?>
     
-    <?php wp_reset_query();
+    <?php wp_reset_query(); ?>
 
 </main>
 
