@@ -92,9 +92,6 @@ class Micinterart_Werk_WooCommerce {
         // (erst nach den Footer-Scripts, damit jQuery sicher geladen ist)
         add_action('admin_print_footer_scripts', [$this, 'output_admin_type_toggle_js'], 100);
         
-        // Standardfelder ausblenden
-        add_action('woocommerce_product_options_general_product_data', [$this, 'hide_standard_fields_for_werk']);
-
         // Frontend: Werk-Details auf der Produktseite anzeigen (nach dem Kurztext)
         add_action('woocommerce_single_product_summary', [$this, 'render_werk_details_frontend'], 25);
     }
@@ -244,29 +241,6 @@ class Micinterart_Werk_WooCommerce {
         }
         
         return $tabs;
-    }
-    
-    /**
-     * Blendet nicht relevante Standard-Felder für Werk-Produkte aus
-     * (nur Preis-Felder, Versand und Lager bleiben sichtbar)
-     */
-    public function hide_standard_fields_for_werk($options) {
-        global $post;
-        
-        if (!isset($post->ID)) {
-            return $options;
-        }
-        
-        $product = wc_get_product($post->ID);
-        if ($product && $product->get_type() === 'werk') {
-            // Preis-Felder ausblenden (Werk hat keinen Preis im alten System)
-            unset($options['_regular_price']);
-            unset($options['_sale_price']);
-            unset($options['_price']);
-            unset($options['_sold_individually']);
-        }
-        
-        return $options;
     }
     
     /**
