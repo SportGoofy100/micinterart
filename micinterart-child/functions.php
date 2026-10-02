@@ -101,10 +101,14 @@ function micinterart_load_workshop_wc_includes() {
         }
     }
     
-    // Werk WooCommerce Plugin (wird über eigenen Hook initialisiert)
+    // Werk WooCommerce Plugin
     $werk_wc_file = get_stylesheet_directory() . '/micinterart-werk-woocommerce.php';
     if (file_exists($werk_wc_file)) {
         require_once $werk_wc_file;
+        // Initialisiere Werk-WC sofort
+        if (class_exists('Micinterart_Werk_WooCommerce')) {
+            Micinterart_Werk_WooCommerce::get_instance();
+        }
     }
     
     // Workshop Checkout Anpassungen (Teilnehmerfelder, Rabatte)
