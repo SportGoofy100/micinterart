@@ -136,6 +136,7 @@ $paged = max(1, (int) get_query_var('paged'));
 
 // Zwei Ansichten: Shop-Startseite (Kacheln + Vorschau) oder Unterseite "Atelier-Shop" (alle übrigen Produkte)
 $is_atelier_page = (bool) get_query_var('micinterart_atelier');
+$preview_class = $is_atelier_page ? '' : ' shop-preview';
 
 $werke_url     = home_url('/werke/');
 $workshops_url = get_post_type_archive_link('workshop') ?: home_url('/workshops/');
@@ -149,7 +150,7 @@ if (!$is_atelier_page) {
     $werke_query = new WP_Query([
         'post_type'      => 'product',
         'post_status'    => 'publish',
-        'posts_per_page' => 8,
+        'posts_per_page' => 4,
         'fields'         => 'ids',
         'orderby'        => 'date',
         'order'          => 'DESC',
@@ -163,7 +164,7 @@ if (!$is_atelier_page) {
     $workshops_query = new WP_Query([
         'post_type'      => 'product',
         'post_status'    => 'publish',
-        'posts_per_page' => 6,
+        'posts_per_page' => 3,
         'fields'         => 'ids',
         'tax_query'      => [[
             'taxonomy' => 'product_type',
@@ -264,7 +265,7 @@ $tiles = [
     <?php endif; ?>
 
     <?php if ($workshops_query && $workshops_query->have_posts()) : ?>
-        <section class="shop-section shop-section-workshops">
+        <section class="shop-section shop-section-workshops<?php echo $preview_class; ?>">
             <div class="shop-section-header">
                 <h2 class="shop-section-title">Workshops</h2>
                 <a class="shop-section-link" href="<?php echo esc_url($workshops_url); ?>">
@@ -280,7 +281,7 @@ $tiles = [
     <?php endif; ?>
 
     <?php if ($werke_query && $werke_query->have_posts()) : ?>
-        <section class="shop-section shop-section-werke">
+        <section class="shop-section shop-section-werke<?php echo $preview_class; ?>">
             <div class="shop-section-header">
                 <h2 class="shop-section-title"><?php echo $is_en ? 'Artworks' : 'Werke'; ?></h2>
                 <a class="shop-section-link" href="<?php echo esc_url($werke_url); ?>">
@@ -296,7 +297,7 @@ $tiles = [
     <?php endif; ?>
 
     <?php if ($other_query->have_posts()) : ?>
-        <section class="shop-section shop-section-other">
+        <section class="shop-section shop-section-other<?php echo $preview_class; ?>">
             <div class="shop-section-header">
                 <h2 class="shop-section-title"><?php echo esc_html($atelier_title); ?></h2>
                 <?php if ($is_atelier_page) : ?>

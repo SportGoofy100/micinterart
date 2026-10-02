@@ -540,3 +540,64 @@
         min-height: 260px;
     }
 }
+
+/* Shop-Startseite: Vorschaubereiche kleiner und dezenter */
+.shop-preview {
+    margin-bottom: 45px;
+}
+
+.shop-preview .shop-section-header {
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 18px;
+}
+
+.shop-preview .shop-section-title {
+    font-size: 1.6em;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+}
+
+.shop-preview .shop-section-link {
+    font-size: 0.9em;
+    font-weight: 500;
+    color: #666;
+    padding-bottom: 6px;
+}
+
+.shop-preview .werke-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 18px;
+}
+
+.shop-preview .werk-item {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.shop-preview .werk-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.14);
+}
+
+.shop-preview .shop-item .werk-thumbnail {
+    height: 150px;
+}
+
+.shop-preview .werk-content {
+    padding: 12px 14px 14px;
+}
+
+.shop-preview .shop-item .werk-title {
+    font-size: 1.2em;
+    margin-bottom: 4px;
+}
+
+.shop-preview .werk-meta {
+    font-size: 0.8em;
+    gap: 3px;
+    margin-bottom: 6px;
+}
+
+.shop-preview .shop-item-price {
+    margin-top: 6px;
+    font-size: 1em;
+}
