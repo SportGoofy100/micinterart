@@ -94,6 +94,24 @@ class Micinterart_Werk_WooCommerce {
         
         // Frontend: Werk-Details auf der Produktseite anzeigen (nach dem Kurztext)
         add_action('woocommerce_single_product_summary', [$this, 'render_werk_details_frontend'], 25);
+
+        // Frontend: Warenkorb-Button wie bei einfachen Produkten
+        add_action('woocommerce_werk_add_to_cart', 'woocommerce_simple_add_to_cart');
+
+        // Kaufbar nur bei Status "verfügbar"
+        add_filter('woocommerce_is_purchasable', [$this, 'werk_product_is_purchasable'], 10, 2);
+    }
+
+    /**
+     * Ein Werk kann nur gekauft werden, solange der Status "verfügbar" ist
+     * (ohne gesetzten Status gilt es als verfügbar).
+     */
+    public function werk_product_is_purchasable($is_purchasable, $product) {
+        if ($product && $product->get_type() === 'werk') {
+            $status = $product->get_meta('_werk_status', true);
+            $is_purchasable = $is_purchasable && ($status === '' || $status === 'verfuegbar');
+        }
+        return $is_purchasable;
     }
 
     /**
@@ -113,6 +131,16 @@ class Micinterart_Werk_WooCommerce {
             ($is_en ? 'Represented by' : 'Vertreten durch') => $product->get_meta('_werk_represented', true),
             ($is_en ? 'Exhibited at' : 'Ausgestellt bei')   => $product->get_meta('_werk_exhibited', true),
         ];
+        // Status nur anzeigen, wenn das Werk nicht (mehr) verfügbar ist
+        $status_labels = [
+            'reserviert'   => $is_en ? 'Reserved' : 'Reserviert',
+            'verkauft'     => $is_en ? 'Sold' : 'Verkauft',
+            'privatbesitz' => $is_en ? 'Private collection' : 'Privatbesitz',
+        ];
+        $status = $product->get_meta('_werk_status', true);
+        if (isset($status_labels[$status])) {
+            $rows['Status'] = $status_labels[$status];
+        }
         $rows = array_filter($rows, function ($value) {
             return trim((string) $value) !== '';
         });
@@ -269,12 +297,18 @@ class Micinterart_Werk_WooCommerce {
             function toggleWerkTypeOptions() {
                 var isWerk = ($('select#product-type').val() === 'werk');
 
+                // Preis- und Steuerfelder von WooCommerce auch für Werke anzeigen
+                var $priceGroups = $('#general_product_data .options_group.pricing')
+                    .add($('#general_product_data .options_group').has('#_tax_status, #_tax_class'));
+                $priceGroups.addClass('show_if_werk');
+
                 // show_if_werk / hide_if_werk (Reiter) schaltet WooCommerce selbst um.
                 // Nie den gesamten .panel-wrap verstecken, sonst verschwinden auch die
                 // Panels anderer Produkttypen (z.B. Workshop-Details).
                 if (!isWerk) {
                     return;
                 }
+                $priceGroups.show();
 
                 // Für Werke alle Typ-Optionen ausblenden (außer Virtuell - aber Virtuell soll DEAKTIVIERT sein)
                 $typeOptions.not(':has(input[name="_virtual"])').hide();
