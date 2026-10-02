@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 
 // Prüfen ob WooCommerce aktiv ist
 if (!class_exists('WooCommerce')) {
-    return;
+    exit;
 }
 
 /**

@@ -13,32 +13,16 @@ if (!defined('ABSPATH')) {
 
 // WC-Produkte vom Typ 'werk' abfragen
 $paged = (get_query_var('paged')) ? get_query_var('paged') : 1;
-
-// Primär nach Produktkategorie 'werke' filtern
 $werk_query = new WP_Query([
     'post_type' => 'product',
     'posts_per_page' => 12,
     'paged' => $paged,
     'tax_query' => [[
-        'taxonomy' => 'product_cat',
+        'taxonomy' => 'product_type',
         'field' => 'slug',
-        'terms' => 'werke',
+        'terms' => 'werk',
     ]],
 ]);
-
-// Falls keine Produkte in Kategorie 'werke', versuche nach Produkttyp 'werk'
-if (!$werk_query->have_posts()) {
-    $werk_query = new WP_Query([
-        'post_type' => 'product',
-        'posts_per_page' => 12,
-        'paged' => $paged,
-        'tax_query' => [[
-            'taxonomy' => 'product_type',
-            'field' => 'slug',
-            'terms' => 'werk',
-        ]],
-    ]);
-}
 
 // Globale Query für Template-Funktionen (immer setzen für Pagination)
 global $wp_query;
