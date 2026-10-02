@@ -260,20 +260,23 @@ class Micinterart_Werk_WooCommerce {
             function toggleWerkTypeOptions() {
                 var isWerk = ($('select#product-type').val() === 'werk');
 
-                // Tabs und Panels für Werk umschalten (nur die Reiter, nie den gesamten .panel-wrap,
-                // sonst verschwinden auch die Panels anderer Produkttypen, z.B. Workshop-Details)
-                $('.show_if_werk').toggle(isWerk);
-                $('.hide_if_werk').toggle(!isWerk);
-
-                // Für Werke alle Typ-Optionen ausblenden (außer Virtuell - aber Virtuell soll DEAKTIVIERT sein)
-                if (isWerk) {
-                    $typeOptions.not(':has(input[name="_virtual"])').hide();
-                    // Virtuell deaktivieren für Werke (nicht automatisch aktiviert)
-                    $typeOptions.has('input[name="_virtual"]').show().find('input').prop('checked', false).prop('disabled', false);
+                // show_if_werk / hide_if_werk (Reiter) schaltet WooCommerce selbst um.
+                // Nie den gesamten .panel-wrap verstecken, sonst verschwinden auch die
+                // Panels anderer Produkttypen (z.B. Workshop-Details).
+                if (!isWerk) {
+                    return;
                 }
 
-                // Sicherstellen, dass panel-wrap immer sichtbar bleibt
-                $('.panel-wrap').show();
+                // Für Werke alle Typ-Optionen ausblenden (außer Virtuell - aber Virtuell soll DEAKTIVIERT sein)
+                $typeOptions.not(':has(input[name="_virtual"])').hide();
+                // Virtuell deaktivieren für Werke (nicht automatisch aktiviert)
+                $typeOptions.has('input[name="_virtual"]').show().find('input').prop('checked', false).prop('disabled', false);
+
+                // Ist der aktive Reiter ausgeblendet worden, den ersten sichtbaren aktivieren,
+                // sonst bleibt das Panel leer
+                if ($('.product_data_tabs li.active').is(':hidden')) {
+                    $('.product_data_tabs li:visible').first().find('a').trigger('click');
+                }
             }
             
             $('select#product-type').on('change', toggleWerkTypeOptions);

@@ -276,14 +276,20 @@ class Micinterart_Workshop_WooCommerce {
             function toggleTypeOptions() {
                 var productType = $('select#product-type').val();
                 var isWorkshop = (productType === 'workshop');
-                
-                $('.show_if_workshop').toggle(isWorkshop);
-                $('.hide_if_workshop').toggle(!isWorkshop);
-                
-                $typeOptions.toggle(!isWorkshop);
-                
-                // Panel-Wrap immer sichtbar halten
-                $('.panel-wrap').show();
+
+                // show_if_workshop / hide_if_workshop (Reiter, Preisfelder) schaltet WooCommerce selbst um.
+                // Hier nur die Typ-Optionen; der Werk-Typ regelt sie in seinem eigenen Script.
+                if (isWorkshop) {
+                    $typeOptions.hide();
+                } else if (productType !== 'werk') {
+                    $typeOptions.show();
+                }
+
+                // Ist der aktive Reiter ausgeblendet worden, den ersten sichtbaren aktivieren,
+                // sonst bleibt das Panel leer
+                if ($('.product_data_tabs li.active').is(':hidden')) {
+                    $('.product_data_tabs li:visible').first().find('a').trigger('click');
+                }
             }
             $('select#product-type').on('change', toggleTypeOptions);
             $(document.body).on('woocommerce-product-type-change', toggleTypeOptions);
