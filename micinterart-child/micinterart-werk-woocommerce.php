@@ -89,7 +89,8 @@ class Micinterart_Werk_WooCommerce {
         add_action('woocommerce_admin_process_product_object', [$this, 'save_werk_product_fields']);
         
         // Admin JS für Tab-Toggling
-        add_action('admin_footer', [$this, 'output_admin_type_toggle_js']);
+        // (erst nach den Footer-Scripts, damit jQuery sicher geladen ist)
+        add_action('admin_print_footer_scripts', [$this, 'output_admin_type_toggle_js'], 100);
         
         // Standardfelder ausblenden
         add_action('woocommerce_product_options_general_product_data', [$this, 'hide_standard_fields_for_werk']);

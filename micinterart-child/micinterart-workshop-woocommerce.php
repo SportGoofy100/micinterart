@@ -139,7 +139,8 @@ class Micinterart_Workshop_WooCommerce {
         add_action('woocommerce_admin_process_product_object', [$this, 'save_workshop_product_fields']);
         
         // Standard-Felder (Versand, Lager, Preisfelder ...) per JS/Klassen ausblenden
-        add_action('admin_footer', [$this, 'output_admin_type_toggle_js']);
+        // (erst nach den Footer-Scripts, damit jQuery sicher geladen ist)
+        add_action('admin_print_footer_scripts', [$this, 'output_admin_type_toggle_js'], 100);
         
         // Frontend: Warenkorb-Button wie bei einfachen Produkten
         add_action('woocommerce_workshop_add_to_cart', 'woocommerce_simple_add_to_cart');
