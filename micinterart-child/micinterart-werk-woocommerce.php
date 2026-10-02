@@ -176,15 +176,19 @@ class Micinterart_Werk_WooCommerce {
     public function add_werk_product_tab($tabs) {
         // Immer sichtbar machen, Sichtbarkeit wird über JS gesteuert
         $tabs['werk'] = [
-            'label' => __('Werk-Details', 'micinterart'),
-            'target' => 'werk_product_data',
+            'label'    => __('Werk-Details', 'micinterart'),
+            'target'   => 'werk_product_data',
+            'class'    => ['show_if_werk'],
             'priority' => 5,
         ];
         
         // Allgemein-Tab für Werke sichtbar lassen
         if (isset($tabs['general'])) {
+            if (!isset($tabs['general']['class'])) {
+                $tabs['general']['class'] = [];
+            }
             // Vermeide doppelte Klassen
-            if (!in_array('show_if_werk', $tabs['general']['class'])) {
+            if (!in_array('show_if_werk', $tabs['general']['class'], true)) {
                 $tabs['general']['class'][] = 'show_if_werk';
             }
         }
@@ -194,8 +198,11 @@ class Micinterart_Werk_WooCommerce {
         $tabs_to_hide = ['linked_product', 'attribute', 'advanced'];
         foreach ($tabs_to_hide as $key) {
             if (isset($tabs[$key])) {
+                if (!isset($tabs[$key]['class'])) {
+                    $tabs[$key]['class'] = [];
+                }
                 // Vermeide doppelte Klassen
-                if (!in_array('hide_if_werk', $tabs[$key]['class'])) {
+                if (!in_array('hide_if_werk', $tabs[$key]['class'], true)) {
                     $tabs[$key]['class'][] = 'hide_if_werk';
                 }
             }
@@ -240,11 +247,6 @@ class Micinterart_Werk_WooCommerce {
         if (!$screen || $screen->id !== 'product') {
             return;
         }
-        
-        // Nur ausführen wenn jQuery verfügbar ist
-        if (!wp_script_is('jquery', 'done')) {
-            return;
-        }
         ?>
         <script>
         jQuery(function($) {
@@ -257,19 +259,21 @@ class Micinterart_Werk_WooCommerce {
             
             function toggleWerkTypeOptions() {
                 var productType = $('select#product-type').val();
-                var $werkPanel = $('#werk_product_data');
+                var isWerk = (productType === 'werk');
+                
+                // Tabs und Panels für Werk umschalten
+                $('.show_if_werk').toggle(isWerk);
+                $('.hide_if_werk').toggle(!isWerk);
                 
                 // Für Werke alle Typ-Optionen ausblenden (außer Virtuell - aber Virtuell soll DEAKTIVIERT sein)
-                if (productType === 'werk') {
+                if (isWerk) {
                     $typeOptions.not(':has(input[name="_virtual"])').hide();
                     // Virtuell deaktivieren für Werke (nicht automatisch aktiviert)
                     $typeOptions.has('input[name="_virtual"]').show().find('input').prop('checked', false).prop('disabled', false);
-                    // Werk-Panel anzeigen
-                    $werkPanel.closest('.panel-wrap').show();
-                } else {
-                    // Werk-Panel verstecken, wenn nicht Werk-Typ
-                    $werkPanel.closest('.panel-wrap').hide();
                 }
+                
+                // Sicherstellen, dass panel-wrap immer sichtbar bleibt
+                $('.panel-wrap').show();
             }
             
             $('select#product-type').on('change', toggleWerkTypeOptions);

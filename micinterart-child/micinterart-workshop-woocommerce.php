@@ -274,7 +274,16 @@ class Micinterart_Workshop_WooCommerce {
                        $(this).closest('.panel, .woocommerce_options_panel').length === 0;
             });
             function toggleTypeOptions() {
-                $typeOptions.toggle($('select#product-type').val() !== 'workshop');
+                var productType = $('select#product-type').val();
+                var isWorkshop = (productType === 'workshop');
+                
+                $('.show_if_workshop').toggle(isWorkshop);
+                $('.hide_if_workshop').toggle(!isWorkshop);
+                
+                $typeOptions.toggle(!isWorkshop);
+                
+                // Panel-Wrap immer sichtbar halten
+                $('.panel-wrap').show();
             }
             $('select#product-type').on('change', toggleTypeOptions);
             $(document.body).on('woocommerce-product-type-change', toggleTypeOptions);
@@ -291,42 +300,34 @@ class Micinterart_Workshop_WooCommerce {
     public function render_workshop_product_tab() {
         global $post, $product_object;
         
-        if (!is_a($product_object, 'WC_Product')) {
-            $product_object = isset($post->ID) && $post->ID ? wc_get_product($post->ID) : null;
+        $product_id = 0;
+        if (is_a($product_object, 'WC_Product')) {
+            $product_id = $product_object->get_id();
+        } elseif ($post && isset($post->ID)) {
+            $product_id = $post->ID;
+            $product_object = wc_get_product($post->ID);
         }
-        if (!$product_object) {
-            // Versuche nochmal mit global $post
-            if ($post && isset($post->ID) && $post->ID) {
-                $product_object = wc_get_product($post->ID);
-            }
-            if (!$product_object) {
-                return;
-            }
-        }
-        
-        $product_id = $product_object->get_id();
         
         // Meta-Werte laden
-        $datum = get_post_meta($product_id, '_workshop_datum', true);
-        $startzeit = get_post_meta($product_id, '_workshop_startzeit', true);
-        $uhrzeit_von = get_post_meta($product_id, '_workshop_uhrzeit_von', true);
-        $uhrzeit_bis = get_post_meta($product_id, '_workshop_uhrzeit_bis', true);
-        $dauer_stunden = get_post_meta($product_id, '_workshop_dauer_stunden', true);
-        $ort = get_post_meta($product_id, '_workshop_ort', true);
-        $adresse = get_post_meta($product_id, '_workshop_adresse', true);
-        $alter_von = get_post_meta($product_id, '_workshop_alter_von', true);
-        $alter_bis = get_post_meta($product_id, '_workshop_alter_bis', true);
-        $preis = get_post_meta($product_id, '_workshop_preis', true);
-        $preis_info = get_post_meta($product_id, '_workshop_preis_info', true);
-        $sprache = get_post_meta($product_id, '_workshop_sprache', true);
-        $max_teilnehmer = get_post_meta($product_id, '_workshop_max_teilnehmer', true);
-        $is_paar = get_post_meta($product_id, '_workshop_is_paar_preis', true);
-        $status = get_post_meta($product_id, '_workshop_status', true);
-        $current_bookings = get_post_meta($product_id, '_workshop_current_bookings', true);
+        $datum = $product_id ? get_post_meta($product_id, '_workshop_datum', true) : '';
+        $startzeit = $product_id ? get_post_meta($product_id, '_workshop_startzeit', true) : '';
+        $uhrzeit_von = $product_id ? get_post_meta($product_id, '_workshop_uhrzeit_von', true) : '';
+        $uhrzeit_bis = $product_id ? get_post_meta($product_id, '_workshop_uhrzeit_bis', true) : '';
+        $dauer_stunden = $product_id ? get_post_meta($product_id, '_workshop_dauer_stunden', true) : '';
+        $ort = $product_id ? get_post_meta($product_id, '_workshop_ort', true) : '';
+        $adresse = $product_id ? get_post_meta($product_id, '_workshop_adresse', true) : '';
+        $alter_von = $product_id ? get_post_meta($product_id, '_workshop_alter_von', true) : '';
+        $alter_bis = $product_id ? get_post_meta($product_id, '_workshop_alter_bis', true) : '';
+        $preis = $product_id ? get_post_meta($product_id, '_workshop_preis', true) : '';
+        $preis_info = $product_id ? get_post_meta($product_id, '_workshop_preis_info', true) : '';
+        $sprache = $product_id ? get_post_meta($product_id, '_workshop_sprache', true) : '';
+        $max_teilnehmer = $product_id ? get_post_meta($product_id, '_workshop_max_teilnehmer', true) : '';
+        $is_paar = $product_id ? get_post_meta($product_id, '_workshop_is_paar_preis', true) : '';
+        $status = $product_id ? get_post_meta($product_id, '_workshop_status', true) : 'geplant';
+        $current_bookings = $product_id ? get_post_meta($product_id, '_workshop_current_bookings', true) : '';
         
         // Lagerbestand aus WC holen
-        $stock_quantity = $product_object->get_stock_quantity();
-        
+        $stock_quantity = ($product_object && is_a($product_object, 'WC_Product')) ? $product_object->get_stock_quantity() : '';
         
         echo '<div id="workshop_product_data" class="panel woocommerce_options_panel hidden">';
         

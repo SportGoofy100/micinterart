@@ -20,11 +20,18 @@ if (!class_exists('WooCommerce')) {
 
 $product_id = get_the_ID();
 $product = wc_get_product($product_id);
-$is_workshop = function_exists('micinterart_wc_is_workshop_product')
-    && micinterart_wc_is_workshop_product($product);
+$is_workshop = false;
+
+if ($product && $product->get_type() === 'workshop') {
+    $is_workshop = true;
+}
+
+if (!$is_workshop && function_exists('micinterart_wc_is_workshop_product') && micinterart_wc_is_workshop_product($product)) {
+    $is_workshop = true;
+}
 
 $terms = get_the_terms($product_id, 'product_cat');
-if ($terms && !is_wp_error($terms)) {
+if (!$is_workshop && $terms && !is_wp_error($terms)) {
     foreach ($terms as $term) {
         if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
             $is_workshop = true;
@@ -33,8 +40,19 @@ if ($terms && !is_wp_error($terms)) {
     }
 }
 
+if (!$is_workshop) {
+    if (get_post_meta($product_id, '_workshop_datum', true) || get_post_meta($product_id, '_workshop_ort', true) || get_post_meta($product_id, '_workshop_max_teilnehmer', true)) {
+        $is_workshop = true;
+    }
+}
+
 if ($is_workshop) {
     // Workshop-Produkt: Verwende unser angepasstes Template
+    $workshop_template = locate_template('single-product-workshop.php');
+    if ($workshop_template) {
+        include($workshop_template);
+        exit;
+    }
     wc_get_template('single-product-workshop.php');
 } else {
     // Normales Produkt mit dem WooCommerce-Standardlayout rendern

@@ -31,8 +31,14 @@ if ($queried_object && isset($queried_object->taxonomy) && $queried_object->taxo
 
 if ($is_workshop_category) {
     // Workshop-Kategorie: Verwende unser angepasstes Template
-    wc_get_template('archive-workshop-wc.php');
+    $workshop_template = locate_template('archive-workshop-wc.php');
+    if ($workshop_template) {
+        include($workshop_template);
+        exit;
+    }
 } else {
-    // Normales Produkt-Archiv: Verwende WooCommerce-Standardtemplate
-    wc_get_template('archive-product-default.php');
+    // Normales Produkt-Archiv: WooCommerce Standard-Loop
+    get_header();
+    woocommerce_content();
+    get_footer();
 }

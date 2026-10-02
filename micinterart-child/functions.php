@@ -249,16 +249,35 @@ function micinterart_wc_product_templates($template) {
         
         // Prüfen ob es ein Workshop-Produkt ist
         $product = wc_get_product($product_id);
-        $is_workshop = function_exists('micinterart_wc_is_workshop_product')
-            && micinterart_wc_is_workshop_product($product);
-        $terms = get_the_terms($product_id, 'product_cat');
+        $is_workshop = false;
         
-        if ($terms && !is_wp_error($terms)) {
-            foreach ($terms as $term) {
-                if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
-                    $is_workshop = true;
-                    break;
+        // 1. Produkttyp direkt prüfen
+        if ($product && $product->get_type() === 'workshop') {
+            $is_workshop = true;
+        }
+        
+        // 2. Hilfsfunktion prüfen
+        if (!$is_workshop && function_exists('micinterart_wc_is_workshop_product') && micinterart_wc_is_workshop_product($product)) {
+            $is_workshop = true;
+        }
+        
+        // 3. Kategorie prüfen
+        if (!$is_workshop) {
+            $terms = get_the_terms($product_id, 'product_cat');
+            if ($terms && !is_wp_error($terms)) {
+                foreach ($terms as $term) {
+                    if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
+                        $is_workshop = true;
+                        break;
+                    }
                 }
+            }
+        }
+        
+        // 4. Workshop-Metafelder als letzten Fallback prüfen
+        if (!$is_workshop) {
+            if (get_post_meta($product_id, '_workshop_datum', true) || get_post_meta($product_id, '_workshop_ort', true) || get_post_meta($product_id, '_workshop_max_teilnehmer', true)) {
+                $is_workshop = true;
             }
         }
         
