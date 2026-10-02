@@ -43,8 +43,147 @@ class Micinterart_Workshop_Checkout {
         
         // CSS für Checkout-Felder
         add_action('wp_enqueue_scripts', [$this, 'enqueue_checkout_styles']);
+
+        // Blocks-Checkout: ein Zusatzfeld für die Namen aller weiteren Teilnehmer
+        add_action('woocommerce_init', [$this, 'register_blocks_checkout_field']);
+        add_action('woocommerce_store_api_checkout_update_order_from_request', [$this, 'process_blocks_participants'], 10, 2);
+        // Gecachte Workshop-IDs (für die Sichtbarkeit des Feldes) bei Produktänderungen verwerfen
+        add_action('woocommerce_update_product', [$this, 'flush_workshop_ids_cache']);
+        add_action('woocommerce_new_product', [$this, 'flush_workshop_ids_cache']);
+        add_action('woocommerce_delete_product', [$this, 'flush_workshop_ids_cache']);
     }
-    
+
+    // ------------------------------------------------------------------
+    // Blocks-Checkout (Zusatzfeld-API von WooCommerce, Ort "order")
+    // Die Blocks-Kasse kennt nur einzeilige Textfelder und keine Felder pro
+    // Warenkorbposition. Daher gibt es ein gemeinsames Feld, in das alle
+    // weiteren Teilnehmer mit Komma getrennt eingetragen werden.
+    // ------------------------------------------------------------------
+
+    const BLOCKS_FIELD_ID = 'micinterart/workshop-teilnehmer';
+    const WORKSHOP_IDS_TRANSIENT = 'micinterart_workshop_product_ids';
+
+    public function register_blocks_checkout_field() {
+        if (!function_exists('woocommerce_register_additional_checkout_field')) {
+            return; // Zu alte WooCommerce-Version
+        }
+
+        $label = __('Weitere Teilnehmer (Namen mit Komma getrennt)', 'micinterart');
+        $field = [
+            'id'            => self::BLOCKS_FIELD_ID,
+            'label'         => $label,
+            'optionalLabel' => $label,
+            'location'      => 'order',
+            'type'          => 'text',
+            'required'      => false,
+        ];
+
+        // Feld nur zeigen, wenn ein Workshop im Warenkorb liegt (Bedingungen ab WooCommerce 9.9)
+        $workshop_ids = $this->get_workshop_product_ids();
+        if (!empty($workshop_ids) && defined('WC_VERSION') && version_compare(WC_VERSION, '9.9', '>=')) {
+            $field['hidden'] = [
+                'cart' => [
+                    'properties' => [
+                        'items' => [
+                            'not' => ['contains' => ['enum' => $workshop_ids]],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        woocommerce_register_additional_checkout_field($field);
+    }
+
+    /**
+     * Prüft die Namen beim Abschicken der Bestellung und verteilt sie auf die Workshop-Positionen
+     */
+    public function process_blocks_participants($order, $request) {
+        if (!is_a($order, 'WC_Order')) {
+            return;
+        }
+
+        // Positionen mit mehreren Plätzen: pro Position werden (Menge - 1) weitere Namen benötigt
+        $positions = [];
+        $required = 0;
+        foreach ($order->get_items('line_item') as $item) {
+            $quantity = (int) $item->get_quantity();
+            if ($quantity > 1 && $this->is_workshop_product($item->get_product())) {
+                $positions[] = [$item, $quantity - 1];
+                $required += $quantity - 1;
+            }
+        }
+        if ($required === 0) {
+            return;
+        }
+
+        $additional = $request['additional_fields'] ?? [];
+        $raw = (is_array($additional) && isset($additional[self::BLOCKS_FIELD_ID]) && is_string($additional[self::BLOCKS_FIELD_ID]))
+            ? $additional[self::BLOCKS_FIELD_ID]
+            : '';
+        $names = $this->split_participant_names($raw);
+
+        if (count($names) !== $required) {
+            $message = sprintf(
+                _n(
+                    'Bitte gib im Feld „Weitere Teilnehmer“ den Namen des weiteren Teilnehmers an.',
+                    'Bitte gib im Feld „Weitere Teilnehmer“ genau %d Namen an (mit Komma getrennt).',
+                    $required,
+                    'micinterart'
+                ),
+                $required
+            );
+            if (class_exists('\Automattic\WooCommerce\StoreApi\Exceptions\RouteException')) {
+                throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException('micinterart_participants_invalid', $message, 400);
+            }
+            return;
+        }
+
+        // Namen der Reihe nach auf die Workshop-Positionen verteilen
+        $offset = 0;
+        foreach ($positions as $position) {
+            list($item, $count) = $position;
+            $chunk = array_slice($names, $offset, $count);
+            $offset += $count;
+            $item->add_meta_data(__('Weitere Teilnehmer', 'micinterart'), implode("\n", $chunk), true);
+            $item->save_meta_data();
+        }
+    }
+
+    private function split_participant_names($value) {
+        $names = preg_split('/[,;\r\n]+/', (string) $value);
+        $names = array_map('sanitize_text_field', array_map('trim', $names));
+        return array_values(array_filter($names, function ($name) {
+            return $name !== '';
+        }));
+    }
+
+    /**
+     * IDs aller Workshop-Produkte (Produkttyp oder Workshop-Kategorie), gecacht
+     */
+    private function get_workshop_product_ids() {
+        $ids = get_transient(self::WORKSHOP_IDS_TRANSIENT);
+        if (is_array($ids)) {
+            return $ids;
+        }
+
+        $by_type = wc_get_products(['type' => 'workshop', 'status' => 'publish', 'limit' => -1, 'return' => 'ids']);
+        $by_category = wc_get_products([
+            'category' => ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'],
+            'status'   => 'publish',
+            'limit'    => -1,
+            'return'   => 'ids',
+        ]);
+        $ids = array_values(array_unique(array_map('intval', array_merge($by_type, $by_category))));
+
+        set_transient(self::WORKSHOP_IDS_TRANSIENT, $ids, 6 * HOUR_IN_SECONDS);
+        return $ids;
+    }
+
+    public function flush_workshop_ids_cache() {
+        delete_transient(self::WORKSHOP_IDS_TRANSIENT);
+    }
+
     public function render_participant_fields($checkout) {
         foreach ($this->get_workshop_cart_items() as $cart_item_key => $cart_item) {
             $quantity = (int) $cart_item['quantity'];

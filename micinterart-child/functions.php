@@ -297,6 +297,47 @@ function micinterart_dequeue_wc_assets() {
 // DEAKTIVIERT: Besser WC-Styles beibehalten für Kompatibilität
 
 // ============================================================================
+// SHOP- UND WERK-ARCHIV: STYLES UND PREISANZEIGE
+// ============================================================================
+
+/**
+ * Kartendesign für Shop-Seite und Werk-Archiv (assets/css/werke-archive.css)
+ */
+function micinterart_enqueue_archive_styles() {
+    $is_werke_page = (bool) get_query_var('micinterart_werke');
+    $is_shop_page  = function_exists('is_shop') && is_shop();
+    $is_werk_cpt   = is_post_type_archive('werk');
+
+    if (!$is_werke_page && !$is_shop_page && !$is_werk_cpt) {
+        return;
+    }
+
+    $css_path = get_stylesheet_directory() . '/assets/css/werke-archive.css';
+    if (file_exists($css_path)) {
+        wp_enqueue_style(
+            'micinterart-werke-archive',
+            get_stylesheet_directory_uri() . '/assets/css/werke-archive.css',
+            [],
+            filemtime($css_path)
+        );
+    }
+}
+add_action('wp_enqueue_scripts', 'micinterart_enqueue_archive_styles');
+
+/**
+ * Preis eines Werks als HTML; ohne hinterlegten Preis "Preis auf Anfrage".
+ */
+function micinterart_werk_price_html($product) {
+    $html = $product ? $product->get_price_html() : '';
+    if ($html !== '') {
+        return wp_kses_post($html);
+    }
+    return '<span class="shop-item-price-request">'
+        . esc_html(micinterart_t('Preis auf Anfrage', 'Price on request'))
+        . '</span>';
+}
+
+// ============================================================================
 // REWRITE-REGELN FÜR WERKE
 // ============================================================================
 

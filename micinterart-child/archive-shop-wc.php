@@ -82,7 +82,9 @@ if (!function_exists('micinterart_shop_render_card')) {
             'workshop' => $is_en ? '📅 View Workshop' : '📅 Workshop ansehen',
             'product'  => $is_en ? '🛒 View Product' : '🛒 Produkt ansehen',
         ];
-        $price_html = $product->get_price_html();
+        $price_html = $kind === 'werk'
+            ? micinterart_werk_price_html($product)
+            : wp_kses_post($product->get_price_html());
         ?>
         <article id="post-<?php echo esc_attr($product_id); ?>" class="werk-item shop-item">
             <a href="<?php echo esc_url(get_permalink($product_id)); ?>" class="werk-link">
@@ -118,7 +120,7 @@ if (!function_exists('micinterart_shop_render_card')) {
                         </div>
                     <?php endif; ?>
                     <?php if ($price_html !== '') : ?>
-                        <div class="shop-item-price"><?php echo wp_kses_post($price_html); ?></div>
+                        <div class="shop-item-price"><?php echo $price_html; ?></div>
                     <?php endif; ?>
                 </div>
             </a>
@@ -190,99 +192,6 @@ $other_query = new WP_Query([
 $werke_url     = home_url('/werke/');
 $workshops_url = get_post_type_archive_link('workshop') ?: home_url('/workshops/');
 ?>
-
-<?php
-$archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.php';
-if (file_exists($archive_werk_styles_file)) {
-    // enthält bereits das umschließende <style>-Element
-    readfile($archive_werk_styles_file);
-}
-?>
-<style>
-/* Shop-Seite: Ergänzungen zum Werk-Archiv-Design */
-.shop-section {
-    max-width: 1400px;
-    margin: 0 auto 70px;
-}
-
-.shop-section-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px 20px;
-    padding: 0 20px;
-    margin-bottom: 25px;
-    border-bottom: 2px solid #d4af37;
-}
-
-.shop-section-title {
-    font-family: 'Bebas Neue', 'Arial', sans-serif;
-    font-size: 2.4em;
-    letter-spacing: 2px;
-    margin: 0 0 8px;
-    color: #2c2c2c;
-}
-
-.shop-section-link {
-    color: #2c2c2c;
-    font-weight: 600;
-    text-decoration: none;
-    padding-bottom: 8px;
-    transition: color 0.2s ease;
-}
-
-.shop-section-link:hover {
-    color: #b89020;
-}
-
-.shop-item-price {
-    margin-top: 12px;
-    font-size: 1.15em;
-    font-weight: 700;
-    color: #2c2c2c;
-}
-
-.shop-item-price small {
-    display: block;
-    font-size: 0.75em;
-    font-weight: 400;
-    color: #666;
-}
-
-.shop-item-price del {
-    color: #999;
-    font-weight: 400;
-}
-
-.shop-item-price ins {
-    text-decoration: none;
-}
-
-.shop-item-badge {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 2;
-    padding: 5px 12px;
-    background: #2c2c2c;
-    color: #d4af37;
-    border-radius: 20px;
-    font-size: 0.8em;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-}
-
-.shop-item .werk-thumbnail {
-    height: 220px;
-}
-
-.shop-item .werk-title {
-    font-size: 1.5em;
-    margin-bottom: 10px;
-}
-</style>
-
 <main id="primary" class="site-main werke-archive shop-archive">
 
     <header class="page-header">

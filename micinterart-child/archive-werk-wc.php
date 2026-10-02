@@ -27,15 +27,8 @@ $werk_query = new WP_Query([
 get_header();
 $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : (function_exists('pll_current_language') && pll_current_language() === 'en');
 
-$archive_werk_styles_file = get_stylesheet_directory() . '/archive-werk-styles.php';
-
+// Styles: assets/css/werke-archive.css (wird in functions.php eingebunden)
 ?>
-
-<?php
-// archive-werk-styles.php enthält bereits das umschließende <style>-Element
-if (file_exists($archive_werk_styles_file)) {
-    readfile($archive_werk_styles_file);
-} ?>
 
 <main id="primary" class="site-main werke-archive">
     
@@ -85,6 +78,7 @@ if (file_exists($archive_werk_styles_file)) {
                         
                         <div class="werk-content">
                             <h2 class="werk-title"><?php the_title(); ?></h2>
+                            <div class="shop-item-price"><?php echo micinterart_werk_price_html(wc_get_product(get_the_ID())); ?></div>
                             
                             <?php
                             // Meta-Informationen
