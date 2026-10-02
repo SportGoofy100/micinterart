@@ -207,14 +207,48 @@ class Micinterart_Werk_WooCommerce {
      * Fügt Werk als Produkttyp hinzu und entfernt unnötige Typen
      */
     public function add_werk_product_type($types) {
-        // Entferne unnötige Produkttypen
-//         unset($types['grouped']);   // Gruppiertes Produkt
-//         unset($types['external']); // Externes/Partnerprodukt
-//         unset($types['variable']); // Variables Produkt
-        
+        // Nicht benötigte Produkttypen ausblenden, aber nur, wenn sie nirgends verwendet werden.
+        // Sonst würden bestehende Produkte dieses Typs im Editor keinen passenden Typ mehr haben
+        // und beim Speichern ungewollt zu "Einfaches Produkt".
+        foreach (['grouped', 'external', 'variable'] as $unused_type) {
+            if (isset($types[$unused_type]) && !$this->product_type_is_in_use($unused_type)) {
+                unset($types[$unused_type]);
+            }
+        }
+
         // Füge Werk hinzu
         $types['werk'] = __('Werk', 'micinterart');
         return $types;
+    }
+
+    /**
+     * Prüft, ob ein Produkttyp noch verwendet wird (bei einem Produkt in irgendeinem Status
+     * oder beim gerade bearbeiteten Produkt)
+     */
+    private function product_type_is_in_use($type) {
+        // Das gerade bearbeitete Produkt hat diesen Typ
+        $edited_id = isset($_GET['post']) ? absint($_GET['post']) : 0;
+        if ($edited_id && get_post_type($edited_id) === 'product' && class_exists('WC_Product_Factory')) {
+            if (WC_Product_Factory::get_product_type($edited_id) === $type) {
+                return true;
+            }
+        }
+
+        // Irgendein Produkt (auch Entwurf, privat, Papierkorb) hat diesen Typ
+        $ids = get_posts([
+            'post_type'      => 'product',
+            'post_status'    => 'any',
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+            'tax_query'      => [[
+                'taxonomy' => 'product_type',
+                'field'    => 'slug',
+                'terms'    => $type,
+            ]],
+        ]);
+
+        return !empty($ids);
     }
     
     /**
@@ -290,16 +324,9 @@ class Micinterart_Werk_WooCommerce {
             'priority' => 5,
         ];
 
-        // Allgemein-Tab für Werke sichtbar lassen
-        if (isset($tabs['general'])) {
-            if (!isset($tabs['general']['class'])) {
-                $tabs['general']['class'] = [];
-            }
-            // Vermeide doppelte Klassen
-            if (!in_array('show_if_werk', $tabs['general']['class'], true)) {
-                $tabs['general']['class'][] = 'show_if_werk';
-            }
-        }
+        // Der Allgemein-Tab (Preis, Steuer) ist bei WooCommerce für alle Typen außer "Gruppiert"
+        // sichtbar. Ihm keine show_if_*-Klasse geben: WooCommerce versteckt sonst bei anderen Typen
+        // (z.B. "Einfaches Produkt") alle show_if_<Typ>-Elemente, die nicht zum Typ passen.
 
         // Für Werke nicht relevante Tabs ausblenden (Linked Product, Attribute, Advanced)
         // Versand und Lager bleiben sichtbar, da Werke physische Produkte sind
@@ -357,8 +384,6 @@ class Micinterart_Werk_WooCommerce {
                     return;
                 }
                 $priceGroups.show();
-                // Allgemein-Reiter (Preis, Steuer) für Werke sicher einblenden
-                $('.product_data_tabs li.general_tab').addClass('show_if_werk').show();
 
                 // Für Werke alle Typ-Optionen ausblenden (außer Virtuell - aber Virtuell soll DEAKTIVIERT sein)
                 $typeOptions.not(':has(input[name="_virtual"])').hide();

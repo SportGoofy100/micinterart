@@ -239,10 +239,9 @@ class Micinterart_Workshop_WooCommerce {
             'priority' => 5,
         ];
 
-        // Allgemein-Tab (Steuer) für Workshops sichtbar lassen
-        if (isset($tabs['general'])) {
-            $tabs['general']['class'][] = 'show_if_workshop';
-        }
+        // Der Allgemein-Tab ist bei WooCommerce für alle Typen außer "Gruppiert" sichtbar.
+        // Ihm keine show_if_*-Klasse geben: WooCommerce versteckt sonst bei anderen Typen
+        // (z.B. "Einfaches Produkt") alle show_if_<Typ>-Elemente, die nicht zum Typ passen.
         // Für Workshops irrelevante Tabs ausblenden
         foreach (['shipping', 'linked_product', 'attribute', 'inventory'] as $key) {
             if (isset($tabs[$key])) {
