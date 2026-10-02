@@ -363,29 +363,52 @@ function micinterart_dequeue_wc_assets() {
 // ============================================================================
 
 /**
- * Rewrite-Regel: /werke/ → Produktkategorie "werke"
- * Analog zu /workshops/ für eine saubere URL-Struktur
+ * Rewrite-Regeln: /werke/ zeigt alle Produkte vom Typ "werk" (archive-werk-wc.php).
+ * Unabhängig von einer Produktkategorie "werke".
  */
 function micinterart_werke_rewrite_rules() {
-    add_rewrite_rule(
-        '^werke/?$',
-        'index.php?product_cat=werke',
-        'top'
-    );
+    add_rewrite_rule('^werke/page/([0-9]+)/?$', 'index.php?micinterart_werke=1&paged=$matches[1]', 'top');
+    add_rewrite_rule('^werke/?$', 'index.php?micinterart_werke=1', 'top');
 }
 add_action('init', 'micinterart_werke_rewrite_rules', 10, 0);
 
+function micinterart_werke_query_vars($vars) {
+    $vars[] = 'micinterart_werke';
+    return $vars;
+}
+add_filter('query_vars', 'micinterart_werke_query_vars');
+
 /**
- * Template für Produktkategorie "werke" verwenden
- * Lädt die archive-werk-wc.php für eine konsistente Darstellung
+ * Permalinks einmalig neu schreiben, sobald sich die Werke-Regeln ändern
+ * (hochzählen, wenn die Regeln oben angepasst werden).
  */
-function micinterart_werke_category_template($template) {
-    if (is_product_category('werke')) {
+function micinterart_werke_maybe_flush_rewrite_rules() {
+    if (get_option('micinterart_werke_rewrite_version') !== '2') {
+        flush_rewrite_rules(false);
+        update_option('micinterart_werke_rewrite_version', '2');
+    }
+}
+add_action('init', 'micinterart_werke_maybe_flush_rewrite_rules', 99);
+
+/**
+ * /werke/ mit dem Werk-Archiv-Template ausliefern
+ */
+function micinterart_werke_template($template) {
+    if (get_query_var('micinterart_werke')) {
         $new_template = locate_template('archive-werk-wc.php');
         if ($new_template) {
+            global $wp_query;
+            $wp_query->is_404 = false;
+            status_header(200);
             return $new_template;
         }
     }
     return $template;
 }
-add_filter('product_cat_template', 'micinterart_werke_category_template', 20);
+add_filter('template_include', 'micinterart_werke_template', 99);
+
+// Kein Canonical-Redirect für /werke/
+function micinterart_werke_no_canonical_redirect($redirect_url) {
+    return get_query_var('micinterart_werke') ? false : $redirect_url;
+}
+add_filter('redirect_canonical', 'micinterart_werke_no_canonical_redirect');
