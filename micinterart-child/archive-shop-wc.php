@@ -134,43 +134,48 @@ get_header();
 $is_en = function_exists('micinterart_is_english') && micinterart_is_english();
 $paged = max(1, (int) get_query_var('paged'));
 
-// Zwei Ansichten: Shop-Startseite (Kacheln + Vorschau) oder Unterseite "Atelier-Shop" (alle übrigen Produkte)
+// Zwei Ansichten: Shop-Startseite (Kacheln mit je einem aktuellen Produkt) oder
+// Unterseite "Atelier-Shop" (alle übrigen Produkte)
 $is_atelier_page = (bool) get_query_var('micinterart_atelier');
-$preview_class = $is_atelier_page ? '' : ' shop-preview';
 
 $werke_url     = home_url('/werke/');
 $workshops_url = get_post_type_archive_link('workshop') ?: home_url('/workshops/');
 $atelier_url   = home_url('/atelier-shop/');
 $atelier_title = $is_en ? 'Atelier Shop' : 'Atelier-Shop';
 
-$werke_query = null;
-$workshops_query = null;
+// Produkte, die weder Werk noch Workshop sind
+$other_tax_query = [[
+    'taxonomy' => 'product_type',
+    'field'    => 'slug',
+    'terms'    => ['werk', 'workshop'],
+    'operator' => 'NOT IN',
+]];
 
-if (!$is_atelier_page) {
-    $werke_query = new WP_Query([
+$other_query = null;
+$previews = [];
+
+if ($is_atelier_page) {
+    $other_query = new WP_Query([
         'post_type'      => 'product',
         'post_status'    => 'publish',
-        'posts_per_page' => 4,
+        'posts_per_page' => 12,
+        'paged'          => $paged,
         'fields'         => 'ids',
-        'orderby'        => 'date',
-        'order'          => 'DESC',
-        'tax_query'      => [[
-            'taxonomy' => 'product_type',
-            'field'    => 'slug',
-            'terms'    => 'werk',
-        ]],
+        'tax_query'      => $other_tax_query,
     ]);
-
-    $workshops_query = new WP_Query([
+} else {
+    // Je Kachel genau ein aktuelles Produkt
+    $previews['workshops'] = new WP_Query([
         'post_type'      => 'product',
         'post_status'    => 'publish',
-        'posts_per_page' => 3,
+        'posts_per_page' => 1,
         'fields'         => 'ids',
         'tax_query'      => [[
             'taxonomy' => 'product_type',
             'field'    => 'slug',
             'terms'    => 'workshop',
         ]],
+        // der nächste anstehende Termin (ohne Datum zählt ebenfalls)
         'meta_query'     => [
             'relation' => 'OR',
             ['key' => '_workshop_datum', 'value' => date('Y-m-d'), 'compare' => '>=', 'type' => 'DATE'],
@@ -181,22 +186,31 @@ if (!$is_atelier_page) {
         'orderby'        => 'meta_value',
         'order'          => 'ASC',
     ]);
-}
 
-// Alle übrigen Produkte (weder Werk noch Workshop): auf der Startseite nur eine Vorschau
-$other_query = new WP_Query([
-    'post_type'      => 'product',
-    'post_status'    => 'publish',
-    'posts_per_page' => $is_atelier_page ? 12 : 4,
-    'paged'          => $is_atelier_page ? $paged : 1,
-    'fields'         => 'ids',
-    'tax_query'      => [[
-        'taxonomy' => 'product_type',
-        'field'    => 'slug',
-        'terms'    => ['werk', 'workshop'],
-        'operator' => 'NOT IN',
-    ]],
-]);
+    $previews['werke'] = new WP_Query([
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+        'tax_query'      => [[
+            'taxonomy' => 'product_type',
+            'field'    => 'slug',
+            'terms'    => 'werk',
+        ]],
+    ]);
+
+    $previews['atelier'] = new WP_Query([
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+        'tax_query'      => $other_tax_query,
+    ]);
+}
 
 // Kacheln der Shop-Startseite (Bilder: Design → Anpassen → Shop-Kacheln)
 $tiles = [
@@ -206,6 +220,8 @@ $tiles = [
         'text'        => $is_en ? 'Courses & events in the studio' : 'Kurse & Events im Atelier',
         'url'         => $workshops_url,
         'placeholder' => '📅',
+        'preview'     => $is_en ? 'Next workshop' : 'Nächster Workshop',
+        'kind'        => 'workshop',
     ],
     [
         'key'         => 'werke',
@@ -213,6 +229,8 @@ $tiles = [
         'text'        => $is_en ? 'Original works of art' : 'Originale Kunstwerke',
         'url'         => $werke_url,
         'placeholder' => '🎨',
+        'preview'     => $is_en ? 'Latest artwork' : 'Neuestes Werk',
+        'kind'        => 'werk',
     ],
     [
         'key'         => 'atelier',
@@ -220,6 +238,8 @@ $tiles = [
         'text'        => $is_en ? 'Art boxes, painting tools & texture pastes' : 'Artboxen, Maltools & Strukturmassen',
         'url'         => $atelier_url,
         'placeholder' => '🖌️',
+        'preview'     => $is_en ? 'New in the shop' : 'Neu im Shop',
+        'kind'        => 'product',
     ],
 ];
 ?>
@@ -244,106 +264,70 @@ $tiles = [
     </header>
 
     <?php if (!$is_atelier_page) : ?>
-        <nav class="shop-tiles" aria-label="<?php echo esc_attr($is_en ? 'Shop areas' : 'Shop-Bereiche'); ?>">
+        <div class="shop-tiles">
             <?php foreach ($tiles as $tile) :
                 $image_url = function_exists('micinterart_shop_tile_image') ? micinterart_shop_tile_image($tile['key']) : '';
+                $preview_ids = isset($previews[$tile['key']]) ? $previews[$tile['key']]->posts : [];
                 ?>
-                <a class="shop-tile" href="<?php echo esc_url($tile['url']); ?>">
-                    <?php if ($image_url !== '') : ?>
-                        <span class="shop-tile-image" style="background-image: url('<?php echo esc_url($image_url); ?>');"></span>
-                    <?php else : ?>
-                        <span class="shop-tile-image shop-tile-placeholder" aria-hidden="true"><?php echo esc_html($tile['placeholder']); ?></span>
+                <div class="shop-tile-col">
+                    <a class="shop-tile" href="<?php echo esc_url($tile['url']); ?>">
+                        <?php if ($image_url !== '') : ?>
+                            <span class="shop-tile-image" style="background-image: url('<?php echo esc_url($image_url); ?>');"></span>
+                        <?php else : ?>
+                            <span class="shop-tile-image shop-tile-placeholder" aria-hidden="true"><?php echo esc_html($tile['placeholder']); ?></span>
+                        <?php endif; ?>
+                        <span class="shop-tile-body">
+                            <span class="shop-tile-title"><?php echo esc_html($tile['title']); ?></span>
+                            <span class="shop-tile-text"><?php echo esc_html($tile['text']); ?></span>
+                            <span class="shop-tile-cta"><?php echo esc_html($is_en ? 'Browse →' : 'Ansehen →'); ?></span>
+                        </span>
+                    </a>
+
+                    <?php if (!empty($preview_ids)) : ?>
+                        <div class="shop-tile-preview">
+                            <div class="shop-tile-preview-label"><?php echo esc_html($tile['preview']); ?></div>
+                            <?php micinterart_shop_render_card($preview_ids[0], $tile['kind']); ?>
+                        </div>
                     <?php endif; ?>
-                    <span class="shop-tile-body">
-                        <span class="shop-tile-title"><?php echo esc_html($tile['title']); ?></span>
-                        <span class="shop-tile-text"><?php echo esc_html($tile['text']); ?></span>
-                        <span class="shop-tile-cta"><?php echo esc_html($is_en ? 'Browse →' : 'Ansehen →'); ?></span>
-                    </span>
-                </a>
+                </div>
             <?php endforeach; ?>
-        </nav>
+        </div>
     <?php endif; ?>
 
-    <?php if ($workshops_query && $workshops_query->have_posts()) : ?>
-        <section class="shop-section shop-section-workshops<?php echo $preview_class; ?>">
-            <div class="shop-section-header">
-                <h2 class="shop-section-title">Workshops</h2>
-                <a class="shop-section-link" href="<?php echo esc_url($workshops_url); ?>">
-                    <?php echo $is_en ? 'All workshops →' : 'Alle Workshops →'; ?>
-                </a>
-            </div>
-            <div class="werke-grid">
-                <?php foreach ($workshops_query->posts as $product_id) {
-                    micinterart_shop_render_card($product_id, 'workshop');
-                } ?>
-            </div>
-        </section>
-    <?php endif; ?>
-
-    <?php if ($werke_query && $werke_query->have_posts()) : ?>
-        <section class="shop-section shop-section-werke<?php echo $preview_class; ?>">
-            <div class="shop-section-header">
-                <h2 class="shop-section-title"><?php echo $is_en ? 'Artworks' : 'Werke'; ?></h2>
-                <a class="shop-section-link" href="<?php echo esc_url($werke_url); ?>">
-                    <?php echo $is_en ? 'All artworks →' : 'Alle Werke →'; ?>
-                </a>
-            </div>
-            <div class="werke-grid">
-                <?php foreach ($werke_query->posts as $product_id) {
-                    micinterart_shop_render_card($product_id, 'werk');
-                } ?>
-            </div>
-        </section>
-    <?php endif; ?>
-
-    <?php if ($other_query->have_posts()) : ?>
-        <section class="shop-section shop-section-other<?php echo $preview_class; ?>">
-            <div class="shop-section-header">
-                <h2 class="shop-section-title"><?php echo esc_html($atelier_title); ?></h2>
-                <?php if ($is_atelier_page) : ?>
+    <?php if ($is_atelier_page) : ?>
+        <?php if ($other_query->have_posts()) : ?>
+            <section class="shop-section shop-section-other">
+                <div class="shop-section-header">
+                    <h2 class="shop-section-title"><?php echo esc_html($atelier_title); ?></h2>
                     <a class="shop-section-link" href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">
                         <?php echo $is_en ? '← Back to the shop' : '← Zurück zum Shop'; ?>
                     </a>
-                <?php elseif ($other_query->found_posts > 4) : ?>
-                    <a class="shop-section-link" href="<?php echo esc_url($atelier_url); ?>">
-                        <?php echo $is_en ? 'All products →' : 'Alle Produkte →'; ?>
-                    </a>
-                <?php endif; ?>
-            </div>
-            <div class="werke-grid">
-                <?php foreach ($other_query->posts as $product_id) {
-                    micinterart_shop_render_card($product_id, 'product');
-                } ?>
-            </div>
-
-            <?php if ($is_atelier_page && $other_query->max_num_pages > 1) : ?>
-                <div class="pagination">
-                    <?php echo paginate_links([
-                        'base'      => trailingslashit(get_pagenum_link(1)) . '%_%',
-                        'format'    => 'page/%#%/',
-                        'current'   => $paged,
-                        'total'     => (int) $other_query->max_num_pages,
-                        'mid_size'  => 2,
-                        'prev_text' => $is_en ? '&laquo; Prev' : '&laquo; Zurück',
-                        'next_text' => $is_en ? 'Next &raquo;' : 'Weiter &raquo;',
-                    ]); ?>
                 </div>
-            <?php endif; ?>
-        </section>
-    <?php endif; ?>
+                <div class="werke-grid">
+                    <?php foreach ($other_query->posts as $product_id) {
+                        micinterart_shop_render_card($product_id, 'product');
+                    } ?>
+                </div>
 
-    <?php
-    $has_content = ($werke_query && $werke_query->have_posts())
-        || ($workshops_query && $workshops_query->have_posts())
-        || $other_query->have_posts();
-    if ($is_atelier_page && !$other_query->have_posts()) : ?>
-        <div class="no-results">
-            <p><?php echo $is_en ? 'No products here yet.' : 'Hier gibt es noch keine Produkte.'; ?></p>
-        </div>
-    <?php elseif (!$is_atelier_page && !$has_content) : ?>
-        <div class="no-results">
-            <p><?php echo $is_en ? 'No products found.' : 'Keine Produkte gefunden.'; ?></p>
-        </div>
+                <?php if ($other_query->max_num_pages > 1) : ?>
+                    <div class="pagination">
+                        <?php echo paginate_links([
+                            'base'      => trailingslashit(get_pagenum_link(1)) . '%_%',
+                            'format'    => 'page/%#%/',
+                            'current'   => $paged,
+                            'total'     => (int) $other_query->max_num_pages,
+                            'mid_size'  => 2,
+                            'prev_text' => $is_en ? '&laquo; Prev' : '&laquo; Zurück',
+                            'next_text' => $is_en ? 'Next &raquo;' : 'Weiter &raquo;',
+                        ]); ?>
+                    </div>
+                <?php endif; ?>
+            </section>
+        <?php else : ?>
+            <div class="no-results">
+                <p><?php echo $is_en ? 'No products here yet.' : 'Hier gibt es noch keine Produkte.'; ?></p>
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
 
 </main>
