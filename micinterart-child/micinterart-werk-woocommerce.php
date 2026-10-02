@@ -100,9 +100,9 @@ class Micinterart_Werk_WooCommerce {
      */
     public function add_werk_product_type($types) {
         // Entferne unnötige Produkttypen
-        unset($types['grouped']);   // Gruppiertes Produkt
-        unset($types['external']); // Externes/Partnerprodukt
-        unset($types['variable']); // Variables Produkt
+//         unset($types['grouped']);   // Gruppiertes Produkt
+//         unset($types['external']); // Externes/Partnerprodukt
+//         unset($types['variable']); // Variables Produkt
         
         // Füge Werk hinzu
         $types['werk'] = __('Werk', 'micinterart');
