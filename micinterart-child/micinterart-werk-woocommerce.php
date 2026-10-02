@@ -309,6 +309,8 @@ class Micinterart_Werk_WooCommerce {
                     return;
                 }
                 $priceGroups.show();
+                // Allgemein-Reiter (Preis, Steuer) für Werke sicher einblenden
+                $('.product_data_tabs li.general_tab').addClass('show_if_werk').show();
 
                 // Für Werke alle Typ-Optionen ausblenden (außer Virtuell - aber Virtuell soll DEAKTIVIERT sein)
                 $typeOptions.not(':has(input[name="_virtual"])').hide();
