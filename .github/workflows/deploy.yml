@@ -29,13 +29,15 @@ jobs:
             **/.github/**
 
   deploy-gallery:
-    name: Deploy Gallery-Theme
+    name: Deploy Gallery-Plugin
     runs-on: ubuntu-latest
+    # Nacheinander laufen, damit sich die FTP-Syncs nicht überschneiden
+    needs: deploy-theme
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v4
 
-      - name: Gallery-Theme per FTP hochladen
+      - name: Gallery-Plugin per FTP hochladen
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -44,7 +46,7 @@ jobs:
           protocol: ftps
           log-level: verbose
           local-dir: ./micinterart-gallery/
-          server-dir: /test.micinterart.de/wp-content/themes/micinterart-child/
+          server-dir: /test.micinterart.de/wp-content/plugins/micinterart-gallery/
           exclude: |
             **/.git*
             **/.git*/**
