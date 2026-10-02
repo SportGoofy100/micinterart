@@ -29,6 +29,15 @@ if ($queried_object && isset($queried_object->taxonomy) && $queried_object->taxo
     }
 }
 
+// Shop-Seite: Produkte nach Bereichen getrennt anzeigen
+if (function_exists('is_shop') && is_shop()) {
+    $shop_template = locate_template('archive-shop-wc.php');
+    if ($shop_template) {
+        include($shop_template);
+        exit;
+    }
+}
+
 // Werke-Kategorie: Werk-Archiv (Produkte vom Typ 'werk') anzeigen
 $is_werke_category = $queried_object
     && isset($queried_object->taxonomy, $queried_object->slug)
