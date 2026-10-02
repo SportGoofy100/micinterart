@@ -7,9 +7,35 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint-php:
+    name: PHP-Syntaxprüfung
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: PHP einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Alle PHP-Dateien auf Syntaxfehler prüfen
+        run: |
+          status=0
+          while IFS= read -r -d '' file; do
+            if ! php -l "$file" > /dev/null; then
+              echo "::error file=$file::PHP-Syntaxfehler"
+              php -l "$file" || true
+              status=1
+            fi
+          done < <(find micinterart-child micinterart-gallery -name '*.php' -print0)
+          exit $status
+
   deploy-theme:
     name: Deploy Child-Theme
     runs-on: ubuntu-latest
+    # Nur deployen, wenn alle PHP-Dateien syntaktisch fehlerfrei sind
+    needs: lint-php
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v4

@@ -732,10 +732,10 @@ if (!empty($workshop_product_tax_query)) {
             $is_kinder = $category_type === 'kinder';
             
             $status = get_post_meta($product_id, '_workshop_status', true) ?: 'geplant';
-            $stock = $product ? $product->get_stock_quantity() : 0;
-            
-            // Wenn ausverkauft, Status anpassen
-            if ($stock <= 0 && $status !== 'beendet' && $status !== 'abgesagt') {
+            $stock = get_workshop_free_places($product);
+
+            // Wenn ausverkauft, Status anpassen (null = keine Plätze-Begrenzung)
+            if ($stock !== null && $stock <= 0 && $status !== 'beendet' && $status !== 'abgesagt') {
                 $status = 'ausgebucht';
             }
             
@@ -846,6 +846,22 @@ function get_status_class($status) {
     return $map[$status] ?? 'status-geplant';
 }
 
+/**
+ * Freie Plätze eines Workshop-Produkts.
+ * Gibt null zurück, wenn keine Begrenzung hinterlegt ist (Lagerverwaltung aus);
+ * ist das Produkt dann trotzdem als nicht lieferbar markiert, gilt es als ausgebucht (0).
+ */
+function get_workshop_free_places($product) {
+    if (!$product) {
+        return null;
+    }
+    $stock = $product->get_stock_quantity();
+    if ($stock === null || $stock === '') {
+        return $product->is_in_stock() ? null : 0;
+    }
+    return (int) $stock;
+}
+
 function get_status_text($status, $stock = null) {
     if ($stock !== null && $stock <= 0 && $status !== 'beendet' && $status !== 'abgesagt') {
         return 'Ausgebucht';
@@ -870,7 +886,7 @@ function display_workshop_card($workshop, $is_archiv = false) {
     $product = $workshop['product'] ?? wc_get_product($post->ID);
     $datum = $workshop['datum'] ?? '';
     $status = $workshop['status'] ?? 'geplant';
-    $stock = $workshop['stock'] ?? ($product ? $product->get_stock_quantity() : 0);
+    $stock = array_key_exists('stock', $workshop) ? $workshop['stock'] : get_workshop_free_places($product);
     $is_kind = $workshop['is_kind'] ?? false;
     
     $status_class = get_status_class($status);
@@ -1014,7 +1030,7 @@ if ($next_workshop) :
     $next_status_text = get_status_text($status, $stock);
     $next_status_class = get_status_class($status);
     
-    if ($stock <= 0) {
+    if ($stock !== null && $stock <= 0) {
         $next_status_class = 'status-ausgebucht';
         $next_status_text = 'Ausgebucht';
     }

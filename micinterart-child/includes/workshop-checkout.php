@@ -189,56 +189,52 @@ class Micinterart_Workshop_Checkout {
             return;
         }
         
-        $workshop_items = [];
-        $kinderworkshop_items = [];
-        
-        // Workshop-Produkte sammeln
-        foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-            $product_id = $cart_item['product_id'];
-            $product = wc_get_product($product_id);
-            
-            if ($product && $this->is_workshop_product($product)) {
-                $workshop_items[] = $cart_item;
-                
-                // Prüfen ob Kinderworkshop
-                $terms = get_the_terms($product_id, 'product_cat');
-                if ($terms && !is_wp_error($terms)) {
-                    foreach ($terms as $term) {
-                        if (in_array($term->slug, ['kinderworkshop', 'kinderworkshops'], true)) {
-                            $kinderworkshop_items[] = $cart_item;
-                            break;
-                        }
+        // Einzelpreise aller Kinder (ein Eintrag pro Teilnehmer, also pro Menge)
+        $kinder_preise = [];
+
+        foreach ($cart->get_cart() as $cart_item) {
+            $product = $cart_item['data'] ?? null;
+            if (!$product || !$this->is_workshop_product($product)) {
+                continue;
+            }
+
+            // Prüfen ob Kinderworkshop
+            $is_kinderworkshop = false;
+            $terms = get_the_terms($cart_item['product_id'], 'product_cat');
+            if ($terms && !is_wp_error($terms)) {
+                foreach ($terms as $term) {
+                    if (in_array($term->slug, ['kinderworkshop', 'kinderworkshops'], true)) {
+                        $is_kinderworkshop = true;
+                        break;
                     }
                 }
             }
+            if (!$is_kinderworkshop) {
+                continue;
+            }
+
+            // Tatsächlicher Preis im Warenkorb (berücksichtigt Angebotspreise)
+            $preis = (float) $product->get_price();
+            for ($i = 0; $i < (int) $cart_item['quantity']; $i++) {
+                $kinder_preise[] = $preis;
+            }
         }
-        
-        // Geschwisterrabatt nur für Kinderworkshops mit mehreren Kindern
-        if (!empty($kinderworkshop_items) && count($kinderworkshop_items) >= 2) {
-            // Anzahl der Kinderworkshop-Items
-            $kinder_count = 0;
-            foreach ($kinderworkshop_items as $item) {
-                $kinder_count += $item['quantity'];
-            }
-            
-            // Rabatt: 10% für jedes Kind ab dem 2.
-            $rabatt_prozent = 10;
-            $rabatt_betrag = 0;
-            
-            // Nur die zusätzlichen Kinder (ab dem 2.) erhalten Rabatt
-            $rabattfaehige_kinder = max(0, $kinder_count - 1);
-            
-            foreach ($kinderworkshop_items as $item) {
-                $product = wc_get_product($item['product_id']);
-                if ($product) {
-                    // Für jedes Kind ab dem 2. wird 10% Rabatt auf den Preis gewährt
-                    $rabatt_betrag += $product->get_price() * $rabatt_prozent / 100 * min($item['quantity'], $rabattfaehige_kinder);
-                }
-            }
-            
-            if ($rabatt_betrag > 0) {
-                $cart->add_fee(__('Geschwisterrabatt', 'micinterart'), -$rabatt_betrag, false);
-            }
+
+        // Geschwisterrabatt erst ab dem 2. Kind, unabhängig davon,
+        // ob die Kinder in einer Zeile (Menge) oder mehreren Zeilen liegen
+        if (count($kinder_preise) < 2) {
+            return;
+        }
+
+        // Das teuerste Kind zahlt den vollen Preis, 10% Rabatt auf alle weiteren
+        rsort($kinder_preise);
+        array_shift($kinder_preise);
+
+        $rabatt_prozent = 10;
+        $rabatt_betrag = array_sum($kinder_preise) * $rabatt_prozent / 100;
+
+        if ($rabatt_betrag > 0) {
+            $cart->add_fee(__('Geschwisterrabatt', 'micinterart'), -$rabatt_betrag, false);
         }
     }
     
@@ -255,35 +251,26 @@ class Micinterart_Workshop_Checkout {
             return;
         }
         
-        $paar_items = [];
-        
-        // Paartickets suchen
-        foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
-            $product_id = $cart_item['product_id'];
-            $is_paar = get_post_meta($product_id, '_workshop_is_paar_preis', true);
-            
-            if ($is_paar === 'yes') {
-                $paar_items[] = $cart_item;
+        // Rabatt von 10% für jedes Paar ab dem 2. (nur Workshop-Produkte mit Paarpreis).
+        // Eine gemeinsame Gebühr, damit sie bei mehreren Zeilen nur einmal auftaucht.
+        $rabatt_betrag = 0;
+        $rabatt_prozent = 10;
+
+        foreach ($cart->get_cart() as $cart_item) {
+            $product = $cart_item['data'] ?? null;
+            if (!$product || !$this->is_workshop_product($product)) {
+                continue;
+            }
+            if ($product->get_meta('_workshop_is_paar_preis', true) !== 'yes') {
+                continue;
+            }
+            if ((int) $cart_item['quantity'] > 1) {
+                $rabatt_betrag += (float) $product->get_price() * $rabatt_prozent / 100 * ((int) $cart_item['quantity'] - 1);
             }
         }
-        
-        // Wenn ein Paar-Ticket gefunden wurde und die Menge > 1
-        if (!empty($paar_items)) {
-            foreach ($paar_items as $item) {
-                if ($item['quantity'] > 1) {
-                    // Rabatt von 10% für jedes Paar ab dem 2.
-                    $product = wc_get_product($item['product_id']);
-                    if ($product) {
-                        $preis_pro_paar = $product->get_price();
-                        $rabatt_prozent = 10;
-                        $rabatt_betrag = $preis_pro_paar * $rabatt_prozent / 100 * ($item['quantity'] - 1);
-                        
-                        if ($rabatt_betrag > 0) {
-                            $cart->add_fee(__('Paarrabatt', 'micinterart'), -$rabatt_betrag, false);
-                        }
-                    }
-                }
-            }
+
+        if ($rabatt_betrag > 0) {
+            $cart->add_fee(__('Paarrabatt', 'micinterart'), -$rabatt_betrag, false);
         }
     }
     
