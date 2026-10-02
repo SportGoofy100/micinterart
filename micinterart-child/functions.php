@@ -18,6 +18,12 @@ if (file_exists($theme_setup_file)) {
     require_once $theme_setup_file;
 }
 
+// Shop-Startseite: Kachelbilder (Customizer)
+$shop_tiles_file = get_stylesheet_directory() . '/includes/shop-tiles.php';
+if (file_exists($shop_tiles_file)) {
+    require_once $shop_tiles_file;
+}
+
 /**
  * Minimale Sprachhilfe für Polylang/Englisch-Fallback.
  * Dadurch können einzelne Templates ohne großen Aufwand bilingual arbeiten.
@@ -304,11 +310,12 @@ function micinterart_dequeue_wc_assets() {
  * Kartendesign für Shop-Seite und Werk-Archiv (assets/css/werke-archive.css)
  */
 function micinterart_enqueue_archive_styles() {
-    $is_werke_page = (bool) get_query_var('micinterart_werke');
-    $is_shop_page  = function_exists('is_shop') && is_shop();
-    $is_werk_cpt   = is_post_type_archive('werk');
+    $is_werke_page   = (bool) get_query_var('micinterart_werke');
+    $is_atelier_page = (bool) get_query_var('micinterart_atelier');
+    $is_shop_page    = function_exists('is_shop') && is_shop();
+    $is_werk_cpt     = is_post_type_archive('werk');
 
-    if (!$is_werke_page && !$is_shop_page && !$is_werk_cpt) {
+    if (!$is_werke_page && !$is_atelier_page && !$is_shop_page && !$is_werk_cpt) {
         return;
     }
 
@@ -348,11 +355,16 @@ function micinterart_werk_price_html($product) {
 function micinterart_werke_rewrite_rules() {
     add_rewrite_rule('^werke/page/([0-9]+)/?$', 'index.php?micinterart_werke=1&paged=$matches[1]', 'top');
     add_rewrite_rule('^werke/?$', 'index.php?micinterart_werke=1', 'top');
+
+    // /atelier-shop/ zeigt alle übrigen Produkte (weder Werk noch Workshop)
+    add_rewrite_rule('^atelier-shop/page/([0-9]+)/?$', 'index.php?micinterart_atelier=1&paged=$matches[1]', 'top');
+    add_rewrite_rule('^atelier-shop/?$', 'index.php?micinterart_atelier=1', 'top');
 }
 add_action('init', 'micinterart_werke_rewrite_rules', 10, 0);
 
 function micinterart_werke_query_vars($vars) {
     $vars[] = 'micinterart_werke';
+    $vars[] = 'micinterart_atelier';
     return $vars;
 }
 add_filter('query_vars', 'micinterart_werke_query_vars');
@@ -362,19 +374,26 @@ add_filter('query_vars', 'micinterart_werke_query_vars');
  * (hochzählen, wenn die Regeln oben angepasst werden).
  */
 function micinterart_werke_maybe_flush_rewrite_rules() {
-    if (get_option('micinterart_werke_rewrite_version') !== '2') {
+    if (get_option('micinterart_werke_rewrite_version') !== '3') {
         flush_rewrite_rules(false);
-        update_option('micinterart_werke_rewrite_version', '2');
+        update_option('micinterart_werke_rewrite_version', '3');
     }
 }
 add_action('init', 'micinterart_werke_maybe_flush_rewrite_rules', 99);
 
 /**
- * /werke/ mit dem Werk-Archiv-Template ausliefern
+ * /werke/ mit dem Werk-Archiv-Template, /atelier-shop/ mit dem Shop-Template ausliefern
  */
 function micinterart_werke_template($template) {
+    $template_file = '';
     if (get_query_var('micinterart_werke')) {
-        $new_template = locate_template('archive-werk-wc.php');
+        $template_file = 'archive-werk-wc.php';
+    } elseif (get_query_var('micinterart_atelier')) {
+        $template_file = 'archive-shop-wc.php';
+    }
+
+    if ($template_file !== '') {
+        $new_template = locate_template($template_file);
         if ($new_template) {
             global $wp_query;
             $wp_query->is_404 = false;
@@ -386,8 +405,8 @@ function micinterart_werke_template($template) {
 }
 add_filter('template_include', 'micinterart_werke_template', 99);
 
-// Kein Canonical-Redirect für /werke/
+// Kein Canonical-Redirect für /werke/ und /atelier-shop/
 function micinterart_werke_no_canonical_redirect($redirect_url) {
-    return get_query_var('micinterart_werke') ? false : $redirect_url;
+    return (get_query_var('micinterart_werke') || get_query_var('micinterart_atelier')) ? false : $redirect_url;
 }
 add_filter('redirect_canonical', 'micinterart_werke_no_canonical_redirect');

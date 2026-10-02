@@ -442,3 +442,101 @@
     font-size: 1.5em;
     margin-bottom: 10px;
 }
+
+/* Shop-Startseite: Kacheln */
+.shop-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    max-width: 1400px;
+    margin: 0 auto 70px;
+    padding: 0 20px;
+}
+
+.shop-tile {
+    position: relative;
+    display: block;
+    min-height: 340px;
+    border-radius: 12px;
+    overflow: hidden;
+    text-decoration: none;
+    color: #fff;
+    background: #1a1a1a;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.shop-tile:hover,
+.shop-tile:focus-visible {
+    transform: translateY(-10px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+}
+
+.shop-tile-image {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.6s ease;
+}
+
+.shop-tile:hover .shop-tile-image {
+    transform: scale(1.06);
+}
+
+.shop-tile-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 60px;
+    font-size: 90px;
+    background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+}
+
+.shop-tile-body {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 70px 24px 24px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0) 100%);
+}
+
+.shop-tile-title {
+    font-family: 'Bebas Neue', 'Arial', sans-serif;
+    font-size: 2.4em;
+    line-height: 1.1;
+    letter-spacing: 2px;
+    color: #d4af37;
+}
+
+.shop-tile-text {
+    font-size: 1em;
+    color: #f5f5f5;
+}
+
+.shop-tile-cta {
+    margin-top: 6px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #d4af37;
+    transition: transform 0.3s ease;
+}
+
+.shop-tile:hover .shop-tile-cta {
+    transform: translateX(6px);
+}
+
+@media (max-width: 900px) {
+    .shop-tiles {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .shop-tile {
+        min-height: 260px;
+    }
+}
