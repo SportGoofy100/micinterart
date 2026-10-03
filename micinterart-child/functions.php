@@ -350,11 +350,10 @@ add_action('wp_enqueue_scripts', 'micinterart_enqueue_archive_styles');
 /**
  * Schmale Navigationsleiste zwischen den Shop-Bereichen (auf kleinen Bildschirmen wischbar).
  *
- * @param string $active 'shop', 'workshops', 'werke' oder 'atelier'
+ * @param string $active 'workshops', 'werke' oder 'atelier'
  */
 function micinterart_shop_subnav($active) {
     $items = [
-        'shop'      => ['Shop', 'Shop', function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/shop/')],
         'workshops' => ['Workshops', 'Workshops', get_post_type_archive_link('workshop') ?: home_url('/workshops/')],
         'werke'     => ['Werke', 'Artworks', home_url('/werke/')],
         'atelier'   => ['Atelier-Shop', 'Atelier Shop', home_url('/atelier-shop/')],
