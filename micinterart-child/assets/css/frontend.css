@@ -1,3 +1,11 @@
+/* Gold-Töne der Seite: hier zentral anpassen */
+:root {
+    --mic-gold: #E2AC12;        /* Hauptgold: Akzente, Rahmen, Buttons */
+    --mic-gold-deep: #C48F00;   /* dunkleres Gold: Hover, Farbverläufe */
+    --mic-gold-dark: #9A7200;   /* Gold für Text auf hellem Grund (lesbar) */
+    --mic-gold-light: #F5E1A0;  /* helles Gold: Verläufe, Flächen */
+}
+
 /* Micinterart: allgemeine Frontend-Styles (Mobil/Tablet, Produktseiten, Workshop-Seiten)
    Die Workshop-Vorlagen enthalten eigene Inline-Styles, die im Dokument später stehen.
    Die Selektoren hier beginnen deshalb mit "body", damit sie Vorrang haben. */

@@ -441,8 +441,8 @@ wp_reset_postdata();
     align-items: center;
     gap: 10px;
     padding: 14px 32px;
-    background: #d4a574;
-    color: #fff;
+    background: var(--mic-gold, #E2AC12);
+    color: #1a1a1a;
     text-decoration: none;
     border-radius: 8px;
     font-weight: 600;
@@ -451,7 +451,7 @@ wp_reset_postdata();
 }
 
 .workshop-cta-inline a:hover {
-    background: #c08f5a;
+    background: var(--mic-gold-deep, #C48F00);
     transform: translateY(-1px);
 }
 
@@ -512,7 +512,7 @@ wp_reset_postdata();
     padding: 30px;
     border-radius: 8px;
     margin: 40px 0;
-    border-left: 5px solid #d4a574;
+    border-left: 5px solid var(--mic-gold, #E2AC12);
 }
 
 .workshop-expectations h3 {
@@ -824,7 +824,7 @@ wp_reset_postdata();
                                 </button>
                             <?php endif; ?>
                             
-                            <a href="<?php echo esc_url(wc_get_cart_url()); ?>" class="workshop-anmeldung-button" style="background: linear-gradient(135deg, #d4a574, #c4915e); border: none;">
+                            <a href="<?php echo esc_url(wc_get_cart_url()); ?>" class="workshop-anmeldung-button" style="background: linear-gradient(135deg, var(--mic-gold, #E2AC12), var(--mic-gold-deep, #C48F00)); border: none; color: #1a1a1a;">
                                 📋 <?php echo $is_en ? 'View cart' : 'Zum Warenkorb'; ?>
                             </a>
                         </div>

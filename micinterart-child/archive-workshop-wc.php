@@ -80,7 +80,7 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
     text-align: center;
     margin-bottom: 40px;
     padding-bottom: 20px;
-    border-bottom: 3px solid #d4a574;
+    border-bottom: 3px solid var(--mic-gold, #E2AC12);
 }
 
 .section-title {
@@ -311,8 +311,8 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
     position: absolute;
     top: 20px;
     left: 20px;
-    background: linear-gradient(135deg, #d4a574, #c4915e);
-    color: #fff;
+    background: linear-gradient(135deg, var(--mic-gold, #E2AC12), var(--mic-gold-deep, #C48F00));
+    color: #1a1a1a;
     padding: 8px 18px;
     border-radius: 25px;
     font-size: 0.85em;
@@ -320,7 +320,7 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
     letter-spacing: 1px;
     text-transform: uppercase;
     z-index: 3;
-    box-shadow: 0 4px 12px rgba(212,165,116,0.4);
+    box-shadow: 0 4px 12px rgba(226,172,18,0.4);
 }
 
 .workshop-section.kinder .hero-badge-next {

@@ -20,7 +20,7 @@
     font-size: 3.5em;
     margin: 0;
     letter-spacing: 3px;
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
 
@@ -104,7 +104,7 @@
     align-items: center;
     gap: 8px;
     padding: 11px 26px;
-    background: #d4af37;
+    background: var(--mic-gold, #E2AC12);
     color: #1a1a1a;
     font-weight: 700;
     font-size: 0.95em;
@@ -151,7 +151,7 @@
 }
 
 .werk-item:hover .werk-title {
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
 }
 
 /* Meta Informationen */
@@ -174,7 +174,7 @@
     content: '';
     width: 4px;
     height: 4px;
-    background: #d4af37;
+    background: var(--mic-gold, #E2AC12);
     border-radius: 50%;
 }
 
@@ -204,7 +204,7 @@
     display: inline-block;
     padding: 5px 12px;
     background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
     border-radius: 20px;
     font-size: 0.85em;
     font-weight: 600;
@@ -213,7 +213,7 @@
 }
 
 .werk-item:hover .werk-serie-badge {
-    background: linear-gradient(135deg, #d4af37 0%, #f4e5c3 100%);
+    background: linear-gradient(135deg, var(--mic-gold, #E2AC12) 0%, var(--mic-gold-light, #F5E1A0) 100%);
     color: #2c2c2c;
     transform: scale(1.05);
 }
@@ -255,16 +255,16 @@
 }
 
 .pagination a:hover {
-    background: #d4af37;
+    background: var(--mic-gold, #E2AC12);
     color: white;
-    border-color: #d4af37;
+    border-color: var(--mic-gold, #E2AC12);
     transform: translateY(-2px);
 }
 
 .pagination span.current {
     background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
-    color: #d4af37;
-    border: 2px solid #d4af37;
+    color: var(--mic-gold, #E2AC12);
+    border: 2px solid var(--mic-gold, #E2AC12);
 }
 
 /* No Results */
@@ -338,13 +338,13 @@
     align-self: flex-start;
     padding: 5px 10px;
     background: #fdfaf2;
-    border: 1px solid #d4af37;
-    color: #b89020;
+    border: 1px solid var(--mic-gold, #E2AC12);
+    color: var(--mic-gold-dark, #9A7200);
     border-radius: 6px;
     font-size: 0.8em;
     font-weight: 600;
     letter-spacing: 0.3px;
-    box-shadow: 0 2px 5px rgba(212,175,55,0.08);
+    box-shadow: 0 2px 5px rgba(226,172,18,0.08);
 }
 
 .werk-exhibited-badge {
@@ -368,7 +368,7 @@
     gap: 10px 20px;
     padding: 0 20px;
     margin-bottom: 25px;
-    border-bottom: 2px solid #d4af37;
+    border-bottom: 2px solid var(--mic-gold, #E2AC12);
 }
 
 .shop-section-title {
@@ -388,7 +388,7 @@
 }
 
 .shop-section-link:hover {
-    color: #b89020;
+    color: var(--mic-gold-dark, #9A7200);
 }
 
 .shop-item-price {
@@ -427,7 +427,7 @@
     z-index: 2;
     padding: 5px 12px;
     background: #2c2c2c;
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
     border-radius: 20px;
     font-size: 0.8em;
     font-weight: 700;
@@ -510,7 +510,7 @@
     font-size: 2.4em;
     line-height: 1.1;
     letter-spacing: 2px;
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
 }
 
 .shop-tile-text {
@@ -522,7 +522,7 @@
     margin-top: 6px;
     font-weight: 700;
     letter-spacing: 0.5px;
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
     transition: transform 0.3s ease;
 }
 
@@ -802,13 +802,13 @@
 
 .shop-subnav-link:hover,
 .shop-subnav-link:focus-visible {
-    border-color: #d4af37;
+    border-color: var(--mic-gold, #E2AC12);
 }
 
 .shop-subnav-link.is-active {
     background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
-    border-color: #d4af37;
-    color: #d4af37;
+    border-color: var(--mic-gold, #E2AC12);
+    color: var(--mic-gold, #E2AC12);
 }
 
 @media (max-width: 900px) {

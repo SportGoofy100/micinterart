@@ -57,7 +57,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                    ?: '';
     ?>
     
-    <div style="background:#f9f9f9; border-left:5px solid #d4a574; border-radius:8px; padding:20px; margin-top:15px;">
+    <div style="background:#f9f9f9; border-left:5px solid var(--mic-gold, #E2AC12); border-radius:8px; padding:20px; margin-top:15px;">
         <strong style="font-size:1em; color:#2c2c2c; display:block; margin-bottom:12px;">✨ <?php echo esc_html($is_en ? 'What to expect' : 'Was dich erwartet'); ?></strong>
         <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;">
 
@@ -321,8 +321,8 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
     align-items: center;
     gap: 10px;
     padding: 14px 32px;
-    background: #d4a574;
-    color: #fff;
+    background: var(--mic-gold, #E2AC12);
+    color: #1a1a1a;
     text-decoration: none;
     border-radius: 8px;
     font-weight: 600;
@@ -331,7 +331,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
 }
 
 .workshop-cta-inline a:hover {
-    background: #c08f5a;
+    background: var(--mic-gold-deep, #C48F00);
     transform: translateY(-1px);
 }
 
@@ -626,12 +626,12 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                             <?php if ($first['von']) { echo ', ' . esc_html($first['von']); if ($first['bis']) echo ' – ' . esc_html($first['bis']); echo ' Uhr'; } ?>
                                         </span>
                                     </p>
-                                    <div class="workshop-thema-box" style="background:#fff; padding:15px; margin-top:15px; border-left:4px solid #d4a574; border-radius:4px; cursor:pointer;"
+                                    <div class="workshop-thema-box" style="background:#fff; padding:15px; margin-top:15px; border-left:4px solid var(--mic-gold, #E2AC12); border-radius:4px; cursor:pointer;"
                                          onclick="toggleThemaDetails(this)">
                                         <div style="display:flex; justify-content:space-between; align-items:center;">
                                             <div>
                                                 <p style="margin:0 0 5px 0;"><strong>📌 Thema dieses Termins:</strong></p>
-                                                <h4 style="margin:5px 0 0 0; font-size:1.3em; color:#d4a574;">
+                                                <h4 style="margin:5px 0 0 0; font-size:1.3em; color:var(--mic-gold, #E2AC12);">
                                                     <?php echo esc_html($first_post->post_title); ?>
                                                 </h4>
                                                 <?php
@@ -639,7 +639,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                 if (!empty($first_content)) :
                                                     ?>
                                                     <p style="margin:5px 0 0 0; font-size:0.95em; color:#666; line-height:1.4;">
-                                                        <?php echo wp_trim_words($first_content, 10, '... <span style="color:#d4a574; font-weight:600;">' . ($is_en ? 'read more' : 'mehr erfahren') . '</span>'); ?>
+                                                        <?php echo wp_trim_words($first_content, 10, '... <span style="color:var(--mic-gold, #E2AC12); font-weight:600;">' . ($is_en ? 'read more' : 'mehr erfahren') . '</span>'); ?>
                                                     </p>
                                                 <?php endif; ?>
                                                 <?php if (!empty($first['preis'])) : ?>
@@ -677,7 +677,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                        class="js-scroll-anmeldung js-preselect-thema"
                                                        data-thema="<?php echo esc_attr($first_post->post_title); ?>"
                                                        onclick="event.stopPropagation();"
-                                                       style="display:inline-flex; align-items:center; gap:8px; padding:10px 22px; background:#d4a574; color:#fff; text-decoration:none; border-radius:6px; font-weight:600; font-size:0.95em;">
+                                                       style="display:inline-flex; align-items:center; gap:8px; padding:10px 22px; background:var(--mic-gold, #E2AC12); color:#1a1a1a; text-decoration:none; border-radius:6px; font-weight:600; font-size:0.95em;">
                                                         ✏️ Für dieses Thema anmelden
                                                     </a>
                                                 </div>
@@ -706,12 +706,12 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                         if (!empty($t_content)) :
                                                             ?>
                                                             <div style="margin-top:5px; font-size:0.9em; color:#666; line-height:1.4;">
-                                                                <?php echo wp_trim_words($t_content, 10, '... <span style="color:#d4a574; font-weight:600;">' . ($is_en ? 'read more' : 'mehr erfahren') . '</span>'); ?>
+                                                                <?php echo wp_trim_words($t_content, 10, '... <span style="color:var(--mic-gold, #E2AC12); font-weight:600;">' . ($is_en ? 'read more' : 'mehr erfahren') . '</span>'); ?>
                                                             </div>
                                                         <?php endif; ?>
                                                     </div>
                                                     <button type="button" onclick="toggleThemaDetails(this.closest('.workshop-termin-item'))"
-                                                            style="padding:6px 12px; background:#d4a574; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+                                                            style="padding:6px 12px; background:var(--mic-gold, #E2AC12); color:#1a1a1a; border:none; border-radius:4px; cursor:pointer;">
                                                         📌 <?php echo esc_html($t_post->post_title); ?> <span>▼</span>
                                                     </button>
                                                 </div>
@@ -742,7 +742,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                                                class="js-scroll-anmeldung js-preselect-thema"
                                                                data-thema="<?php echo esc_attr($t_post->post_title); ?>"
                                                                onclick="event.stopPropagation();"
-                                                               style="display:inline-flex; align-items:center; gap:8px; padding:10px 22px; background:#d4a574; color:#fff; text-decoration:none; border-radius:6px; font-weight:600; font-size:0.95em;">
+                                                               style="display:inline-flex; align-items:center; gap:8px; padding:10px 22px; background:var(--mic-gold, #E2AC12); color:#1a1a1a; text-decoration:none; border-radius:6px; font-weight:600; font-size:0.95em;">
                                                                 ✏️ <?php echo esc_html($is_en ? 'Register for this topic' : 'Für dieses Thema anmelden'); ?>
                                                             </a>
                                                         </div>

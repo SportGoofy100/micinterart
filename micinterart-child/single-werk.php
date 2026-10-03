@@ -31,7 +31,7 @@ $is_en = micinterart_is_english();
     text-align: center;
     padding: 40px 30px 30px;
     background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
 }
 
 .werk-title {
@@ -40,7 +40,7 @@ $is_en = micinterart_is_english();
     margin: 0;
     letter-spacing: 2px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
 }
 
 /* Hinweise */
@@ -57,21 +57,21 @@ $is_en = micinterart_is_english();
 
 .werk-hinweis-gedicht {
     background: linear-gradient(135deg, #3a3a3a 0%, #2c2c2c 100%);
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
     border: none;
-    border-left: 4px solid #d4af37;
+    border-left: 4px solid var(--mic-gold, #E2AC12);
 }
 
 .werk-hinweis-serie {
     background: linear-gradient(135deg, #3a3a3a 0%, #2c2c2c 100%);
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
     border: none;
-    border-left: 4px solid #d4af37;
+    border-left: 4px solid var(--mic-gold, #E2AC12);
 }
 
 .werk-hinweis-gedicht a,
 .werk-hinweis-serie a {
-    color: #f4e5c3;
+    color: var(--mic-gold-light, #F5E1A0);
     text-decoration: underline;
     font-weight: 600;
 }
@@ -123,7 +123,7 @@ $is_en = micinterart_is_english();
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 20px;
-    border: 2px solid #d4af37;
+    border: 2px solid var(--mic-gold, #E2AC12);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -135,7 +135,7 @@ $is_en = micinterart_is_english();
 
 .werk-meta-label {
     font-size: 0.85em;
-    color: #d4af37;
+    color: var(--mic-gold, #E2AC12);
     text-transform: uppercase;
     font-weight: 700;
     letter-spacing: 1px;
@@ -291,11 +291,11 @@ $is_en = micinterart_is_english();
     transition: all 0.3s ease;
     padding: 10px 20px;
     border-radius: 8px;
-    border: 2px solid #d4af37;
+    border: 2px solid var(--mic-gold, #E2AC12);
 }
 
 .werk-back-link a:hover {
-    background: #d4af37;
+    background: var(--mic-gold, #E2AC12);
     color: #2c2c2c;
     transform: translateX(-5px);
 }
@@ -406,13 +406,13 @@ $is_en = micinterart_is_english();
     align-self: flex-start;
     padding: 5px 10px;
     background: #fdfaf2;
-    border: 1px solid #d4af37;
-    color: #b89020;
+    border: 1px solid var(--mic-gold, #E2AC12);
+    color: var(--mic-gold-dark, #9A7200);
     border-radius: 6px;
     font-size: 0.8em;
     font-weight: 600;
     letter-spacing: 0.3px;
-    box-shadow: 0 2px 5px rgba(212,175,55,0.08);
+    box-shadow: 0 2px 5px rgba(226,172,18,0.08);
 }
 
 .werk-exhibited-badge {
