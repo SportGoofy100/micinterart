@@ -818,3 +818,13 @@
         padding: 0 12px 4px;
     }
 }
+
+/* Kacheln: Inhalt zentriert */
+.shop-tile-body {
+    align-items: center;
+    text-align: center;
+}
+
+.shop-tile:hover .shop-tile-cta {
+    transform: none;
+}
