@@ -186,6 +186,7 @@ $status_class = 'status-' . $status;
 // Weitere Workshops für die Box
 $related_workshops_query = new WP_Query([
     'post_type' => 'product',
+    'lang' => '',
     'post_status' => 'publish',
     'posts_per_page' => 3,
     'post__not_in' => [$product_id],

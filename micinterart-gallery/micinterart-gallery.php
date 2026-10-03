@@ -54,6 +54,7 @@ class MicinterartGallery {
         add_action('save_post_gedicht', [$this, 'sync_gedicht_on_save'], 20);
         add_action('pll_save_post_translations', [$this, 'sync_gedicht_on_polylang_save'], 10, 2);
         add_action('pll_save_post_translations', [$this, 'sync_page_on_polylang_save'], 10, 2);
+        add_action('pll_save_post_translations', [$this, 'sync_werk_product_on_polylang_save'], 10, 2);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('admin_menu', [$this, 'add_plugin_settings_menu']);
         add_action('admin_init', [$this, 'register_plugin_settings']);
@@ -171,6 +172,46 @@ class MicinterartGallery {
         foreach ($translations as $lang => $translation_id) {
             if (!$translation_id || $translation_id == $source_id || $lang === 'de') continue;
             $this->copy_page_translation($source_id, $translation_id);
+        }
+    }
+
+    /**
+     * Werk-Produkte (WooCommerce, Typ "werk"): Beim Anlegen einer Übersetzung werden Titel,
+     * Beschreibung, Kurztext, Materialien usw. von DeepL vorbefüllt und Preis, Bilder und
+     * Versanddaten vom deutschen Original übernommen. Bereits gefüllte Felder bleiben unberührt.
+     * Den Produkttyp "Werk" muss man in der Übersetzung selbst wählen.
+     */
+    public function sync_werk_product_on_polylang_save($post_id, $translations) {
+        if (!function_exists('pll_get_post_language') || !function_exists('wc_get_product')) return;
+
+        $source_id = $this->get_german_translation_id($translations);
+        if (!$source_id) return;
+
+        $source = wc_get_product($source_id);
+        if (!$source || $source->get_type() !== 'werk') return;
+
+        foreach ($translations as $lang => $translation_id) {
+            if (!$translation_id || (int) $translation_id === $source_id || $lang === 'de') continue;
+            if (!empty($this->translation_sync_in_progress[$translation_id])) continue;
+
+            $this->copy_werk_metadata($source_id, (int) $translation_id);
+            $this->copy_werk_product_commerce_data($source_id, (int) $translation_id);
+        }
+    }
+
+    /** Preis, Steuer, Versanddaten und Galerie: nur übernehmen, wenn sie in der Übersetzung leer sind. */
+    private function copy_werk_product_commerce_data($source_id, $target_id) {
+        $keys = [
+            '_regular_price', '_price', '_sale_price', '_tax_status', '_tax_class',
+            '_weight', '_length', '_width', '_height', '_product_image_gallery',
+        ];
+        foreach ($keys as $key) {
+            if (get_post_meta($target_id, $key, true) !== '') continue;
+
+            $value = get_post_meta($source_id, $key, true);
+            if ($value !== '') {
+                update_post_meta($target_id, $key, $value);
+            }
         }
     }
 

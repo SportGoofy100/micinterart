@@ -52,7 +52,7 @@ if (!function_exists('micinterart_shop_render_card')) {
                 'verkauft'     => $is_en ? 'Sold' : 'Verkauft',
                 'privatbesitz' => $is_en ? 'Private collection' : 'Privatbesitz',
             ];
-            $status = $product->get_meta('_werk_status', true);
+            $status = micinterart_werk_status($product_id);
             if (isset($badges[$status])) {
                 $badge = $badges[$status];
             }
@@ -157,6 +157,7 @@ $previews = [];
 if ($is_atelier_page) {
     $other_query = new WP_Query([
         'post_type'      => 'product',
+        'lang'           => '',
         'post_status'    => 'publish',
         'posts_per_page' => 12,
         'paged'          => $paged,
@@ -167,6 +168,7 @@ if ($is_atelier_page) {
     // Je Kachel genau ein aktuelles Produkt
     $previews['workshops'] = new WP_Query([
         'post_type'      => 'product',
+        'lang'           => '',
         'post_status'    => 'publish',
         'posts_per_page' => 1,
         'fields'         => 'ids',
@@ -203,6 +205,7 @@ if ($is_atelier_page) {
 
     $previews['atelier'] = new WP_Query([
         'post_type'      => 'product',
+        'lang'           => '',
         'post_status'    => 'publish',
         'posts_per_page' => 1,
         'fields'         => 'ids',

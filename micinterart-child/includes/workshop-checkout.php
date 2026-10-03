@@ -167,14 +167,30 @@ class Micinterart_Workshop_Checkout {
             return $ids;
         }
 
-        $by_type = wc_get_products(['type' => 'workshop', 'status' => 'publish', 'limit' => -1, 'return' => 'ids']);
-        $by_category = wc_get_products([
-            'category' => ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'],
-            'status'   => 'publish',
-            'limit'    => -1,
-            'return'   => 'ids',
+        // Über alle Sprachen suchen ('lang' => ''), sonst fehlen bei aktivem Polylang die Workshops
+        // der jeweils anderen Sprache
+        $ids = get_posts([
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+            'lang'           => '',
+            'tax_query'      => [
+                'relation' => 'OR',
+                [
+                    'taxonomy' => 'product_type',
+                    'field'    => 'slug',
+                    'terms'    => 'workshop',
+                ],
+                [
+                    'taxonomy' => 'product_cat',
+                    'field'    => 'slug',
+                    'terms'    => ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'],
+                ],
+            ],
         ]);
-        $ids = array_values(array_unique(array_map('intval', array_merge($by_type, $by_category))));
+        $ids = array_values(array_unique(array_map('intval', $ids)));
 
         set_transient(self::WORKSHOP_IDS_TRANSIENT, $ids, 6 * HOUR_IN_SECONDS);
         return $ids;

@@ -701,6 +701,7 @@ if (!empty($workshop_product_tax_query)) {
     // Alle Workshops holen (upcoming)
     $args_upcoming = [
         'post_type' => 'product',
+        'lang' => '',
         'posts_per_page' => -1,
         'post_status' => 'publish',
         'tax_query' => $workshop_product_tax_query,
@@ -760,6 +761,7 @@ if (!empty($workshop_product_tax_query)) {
     // Archiv-Workshops (vergangene)
     $args_past = [
         'post_type' => 'product',
+        'lang' => '',
         'posts_per_page' => -1,
         'post_status' => 'publish',
         'tax_query' => $workshop_product_tax_query,

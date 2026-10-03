@@ -379,8 +379,43 @@ function micinterart_werk_status_label($product_id) {
         'verkauft'     => micinterart_t('Verkauft', 'Sold'),
         'privatbesitz' => micinterart_t('Privatbesitz', 'Private collection'),
     ];
-    $status = get_post_meta($product_id, '_werk_status', true);
+    $status = micinterart_werk_status($product_id);
     return isset($labels[$status]) ? $labels[$status] : '';
+}
+
+/**
+ * Mehrsprachigkeit (Polylang): Das deutsche Original eines Werks ist maßgeblich für
+ * Status und Verfügbarkeit. Ohne Polylang ist das Werk selbst das Original.
+ */
+function micinterart_werk_source_id($post_id) {
+    if (function_exists('pll_default_language') && function_exists('pll_get_post')) {
+        $source = pll_get_post($post_id, pll_default_language());
+        if ($source) {
+            return (int) $source;
+        }
+    }
+    return (int) $post_id;
+}
+
+/**
+ * Werk-Status ('' = verfügbar, 'verfuegbar', 'reserviert', 'verkauft', 'privatbesitz') vom Original
+ */
+function micinterart_werk_status($post_id) {
+    return (string) get_post_meta(micinterart_werk_source_id($post_id), '_werk_status', true);
+}
+
+/**
+ * IDs aller Sprachfassungen eines Werks (einschließlich des Werks selbst)
+ */
+function micinterart_werk_translation_ids($post_id) {
+    $ids = [(int) $post_id];
+    if (function_exists('pll_get_post_translations')) {
+        $translations = pll_get_post_translations($post_id);
+        if (is_array($translations)) {
+            $ids = array_merge($ids, array_map('intval', array_values($translations)));
+        }
+    }
+    return array_values(array_unique(array_filter($ids)));
 }
 
 /**
@@ -411,6 +446,12 @@ function micinterart_werke_rewrite_rules() {
     // /atelier-shop/ zeigt alle übrigen Produkte (weder Werk noch Workshop)
     add_rewrite_rule('^atelier-shop/page/([0-9]+)/?$', 'index.php?micinterart_atelier=1&paged=$matches[1]', 'top');
     add_rewrite_rule('^atelier-shop/?$', 'index.php?micinterart_atelier=1', 'top');
+
+    // Dieselben Seiten mit Sprachpräfix (Polylang, z.B. /en/werke/); 'lang' erkennt Polylang selbst
+    add_rewrite_rule('^([a-z]{2,3})/werke/page/([0-9]+)/?$', 'index.php?lang=$matches[1]&micinterart_werke=1&paged=$matches[2]', 'top');
+    add_rewrite_rule('^([a-z]{2,3})/werke/?$', 'index.php?lang=$matches[1]&micinterart_werke=1', 'top');
+    add_rewrite_rule('^([a-z]{2,3})/atelier-shop/page/([0-9]+)/?$', 'index.php?lang=$matches[1]&micinterart_atelier=1&paged=$matches[2]', 'top');
+    add_rewrite_rule('^([a-z]{2,3})/atelier-shop/?$', 'index.php?lang=$matches[1]&micinterart_atelier=1', 'top');
 }
 add_action('init', 'micinterart_werke_rewrite_rules', 10, 0);
 
@@ -426,9 +467,9 @@ add_filter('query_vars', 'micinterart_werke_query_vars');
  * (hochzählen, wenn die Regeln oben angepasst werden).
  */
 function micinterart_werke_maybe_flush_rewrite_rules() {
-    if (get_option('micinterart_werke_rewrite_version') !== '3') {
+    if (get_option('micinterart_werke_rewrite_version') !== '4') {
         flush_rewrite_rules(false);
-        update_option('micinterart_werke_rewrite_version', '3');
+        update_option('micinterart_werke_rewrite_version', '4');
     }
 }
 add_action('init', 'micinterart_werke_maybe_flush_rewrite_rules', 99);
@@ -503,3 +544,31 @@ function micinterart_email_header_image_fallback($value) {
     return $value;
 }
 add_filter('option_woocommerce_email_header_image', 'micinterart_email_header_image_fallback');
+
+// ============================================================================
+// MEHRSPRACHIGKEIT (Polylang): WooCommerce-Seiten in der aktuellen Sprache
+// ============================================================================
+
+/**
+ * Shop, Warenkorb, Kasse und Mein Konto: im Frontend die übersetzte Seite der aktuellen Sprache
+ * verwenden (WooCommerce kennt sonst nur die deutsche Seite). Ohne Polylang oder ohne
+ * Übersetzung der Seite bleibt alles wie es ist.
+ */
+function micinterart_wc_translate_page_id($page_id) {
+    if (is_admin() && !wp_doing_ajax()) {
+        return $page_id;
+    }
+
+    if ($page_id > 0 && function_exists('pll_get_post')) {
+        $translated_id = pll_get_post($page_id);
+        if ($translated_id) {
+            return (int) $translated_id;
+        }
+    }
+
+    return $page_id;
+}
+foreach (['shop', 'cart', 'checkout', 'myaccount', 'terms'] as $micinterart_wc_page) {
+    add_filter('woocommerce_get_' . $micinterart_wc_page . '_page_id', 'micinterart_wc_translate_page_id');
+}
+unset($micinterart_wc_page);

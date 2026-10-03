@@ -117,7 +117,8 @@ class Micinterart_Werk_WooCommerce {
      */
     public function werk_stock_status($stock_status, $product) {
         if ($product && $product->get_type() === 'werk') {
-            $werk_status = $product->get_meta('_werk_status', true);
+            // Der Status gilt für alle Sprachfassungen und kommt vom Original
+            $werk_status = micinterart_werk_status($product->get_id());
             if ($werk_status !== '' && $werk_status !== 'verfuegbar') {
                 return 'outofstock';
             }
@@ -139,10 +140,16 @@ class Micinterart_Werk_WooCommerce {
             if (!$product || $product->get_type() !== 'werk') {
                 continue;
             }
-            update_post_meta($product->get_id(), '_werk_status', 'verkauft');
-            update_post_meta($product->get_id(), '_werk_sold_order', (int) $order_id);
-            $product->set_stock_status('outofstock');
-            $product->save();
+            // Alle Sprachfassungen des Werks (bei einsprachiger Seite nur das Werk selbst)
+            foreach (micinterart_werk_translation_ids($product->get_id()) as $werk_id) {
+                update_post_meta($werk_id, '_werk_status', 'verkauft');
+                update_post_meta($werk_id, '_werk_sold_order', (int) $order_id);
+                $werk = wc_get_product($werk_id);
+                if ($werk) {
+                    $werk->set_stock_status('outofstock');
+                    $werk->save();
+                }
+            }
         }
     }
 
@@ -164,10 +171,15 @@ class Micinterart_Werk_WooCommerce {
             if ((int) get_post_meta($product->get_id(), '_werk_sold_order', true) !== (int) $order_id) {
                 continue;
             }
-            update_post_meta($product->get_id(), '_werk_status', 'verfuegbar');
-            delete_post_meta($product->get_id(), '_werk_sold_order');
-            $product->set_stock_status('instock');
-            $product->save();
+            foreach (micinterart_werk_translation_ids($product->get_id()) as $werk_id) {
+                update_post_meta($werk_id, '_werk_status', 'verfuegbar');
+                delete_post_meta($werk_id, '_werk_sold_order');
+                $werk = wc_get_product($werk_id);
+                if ($werk) {
+                    $werk->set_stock_status('instock');
+                    $werk->save();
+                }
+            }
         }
     }
 
@@ -177,7 +189,7 @@ class Micinterart_Werk_WooCommerce {
      */
     public function werk_product_is_purchasable($is_purchasable, $product) {
         if ($product && $product->get_type() === 'werk') {
-            $status = $product->get_meta('_werk_status', true);
+            $status = micinterart_werk_status($product->get_id());
             $is_purchasable = $is_purchasable && ($status === '' || $status === 'verfuegbar');
         }
         return $is_purchasable;
@@ -206,7 +218,7 @@ class Micinterart_Werk_WooCommerce {
             'verkauft'     => $is_en ? 'Sold' : 'Verkauft',
             'privatbesitz' => $is_en ? 'Private collection' : 'Privatbesitz',
         ];
-        $status = $product->get_meta('_werk_status', true);
+        $status = micinterart_werk_status($product->get_id());
         if (isset($status_labels[$status])) {
             $rows['Status'] = $status_labels[$status];
         }
