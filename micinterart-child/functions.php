@@ -371,6 +371,20 @@ function micinterart_shop_subnav($active) {
 }
 
 /**
+ * Beschriftung für Werke, die nicht (mehr) verfügbar sind ("Verkauft", "Reserviert", ...);
+ * leer, wenn das Werk verfügbar ist.
+ */
+function micinterart_werk_status_label($product_id) {
+    $labels = [
+        'reserviert'   => micinterart_t('Reserviert', 'Reserved'),
+        'verkauft'     => micinterart_t('Verkauft', 'Sold'),
+        'privatbesitz' => micinterart_t('Privatbesitz', 'Private collection'),
+    ];
+    $status = get_post_meta($product_id, '_werk_status', true);
+    return isset($labels[$status]) ? $labels[$status] : '';
+}
+
+/**
  * Preis eines Werks als HTML; ohne hinterlegten Preis "Preis auf Anfrage".
  */
 function micinterart_werk_price_html($product) {

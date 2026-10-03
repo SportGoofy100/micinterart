@@ -101,11 +101,28 @@ class Micinterart_Werk_WooCommerce {
         // Kaufbar nur bei Status "verfügbar"
         add_filter('woocommerce_is_purchasable', [$this, 'werk_product_is_purchasable'], 10, 2);
 
+        // Lagerstatus folgt dem Werk-Status: nicht verfügbar = nicht vorrätig
+        // (wirkt auch bei bereits gespeicherten Werken, ohne dass sie neu gespeichert werden müssen)
+        add_filter('woocommerce_product_get_stock_status', [$this, 'werk_stock_status'], 10, 2);
+
         // Nach bezahlter Bestellung Status auf "verkauft" setzen, bei Storno/Erstattung zurück
         add_action('woocommerce_order_status_processing', [$this, 'mark_werke_sold']);
         add_action('woocommerce_order_status_completed', [$this, 'mark_werke_sold']);
         add_action('woocommerce_order_status_cancelled', [$this, 'release_werke']);
         add_action('woocommerce_order_status_refunded', [$this, 'release_werke']);
+    }
+
+    /**
+     * Ein Werk, das nicht "verfügbar" ist (verkauft, reserviert, Privatbesitz), gilt als nicht vorrätig
+     */
+    public function werk_stock_status($stock_status, $product) {
+        if ($product && $product->get_type() === 'werk') {
+            $werk_status = $product->get_meta('_werk_status', true);
+            if ($werk_status !== '' && $werk_status !== 'verfuegbar') {
+                return 'outofstock';
+            }
+        }
+        return $stock_status;
     }
 
     /**
@@ -124,6 +141,8 @@ class Micinterart_Werk_WooCommerce {
             }
             update_post_meta($product->get_id(), '_werk_status', 'verkauft');
             update_post_meta($product->get_id(), '_werk_sold_order', (int) $order_id);
+            $product->set_stock_status('outofstock');
+            $product->save();
         }
     }
 
@@ -147,6 +166,8 @@ class Micinterart_Werk_WooCommerce {
             }
             update_post_meta($product->get_id(), '_werk_status', 'verfuegbar');
             delete_post_meta($product->get_id(), '_werk_sold_order');
+            $product->set_stock_status('instock');
+            $product->save();
         }
     }
 
@@ -538,6 +559,12 @@ class Micinterart_Werk_WooCommerce {
             }
         }
         
+        // Lagerstatus folgt dem Werk-Status (nur ohne Lagerverwaltung; bei verwalteter Menge entscheidet die Menge)
+        if (!$product->get_manage_stock()) {
+            $werk_status = isset($_POST['_werk_status']) ? sanitize_text_field(wp_unslash($_POST['_werk_status'])) : '';
+            $product->set_stock_status(($werk_status === '' || $werk_status === 'verfuegbar') ? 'instock' : 'outofstock');
+        }
+
         // Weitere Bilder (Textarea mit comma-separierten IDs)
         if (isset($_POST['_werk_additional_images'])) {
             $images = sanitize_text_field(wp_unslash($_POST['_werk_additional_images']));

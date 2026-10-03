@@ -66,8 +66,12 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
                                 the_post_thumbnail('medium_large', [
                                     'loading' => 'lazy',
                                     'alt' => get_the_title()
-                                ]); 
+                                ]);
                                 ?>
+                                <?php $status_label = micinterart_werk_status_label(get_the_ID()); ?>
+                                <?php if ($status_label !== '') : ?>
+                                    <span class="shop-item-badge"><?php echo esc_html($status_label); ?></span>
+                                <?php endif; ?>
                                 <div class="werk-thumbnail-overlay">
                                     <span class="werk-cta-btn"><?php echo $is_en ? '🎨 View Artwork' : '🎨 Werk ansehen'; ?></span>
                                 </div>
@@ -75,6 +79,10 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
                         <?php else : ?>
                             <div class="werk-thumbnail werk-thumbnail-placeholder">
                                 <span class="dashicons dashicons-format-image"></span>
+                                <?php $status_label = micinterart_werk_status_label(get_the_ID()); ?>
+                                <?php if ($status_label !== '') : ?>
+                                    <span class="shop-item-badge"><?php echo esc_html($status_label); ?></span>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
                         
