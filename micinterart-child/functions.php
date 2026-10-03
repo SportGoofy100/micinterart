@@ -449,3 +449,44 @@ function micinterart_werke_no_canonical_redirect($redirect_url) {
     return (get_query_var('micinterart_werke') || get_query_var('micinterart_atelier')) ? false : $redirect_url;
 }
 add_filter('redirect_canonical', 'micinterart_werke_no_canonical_redirect');
+
+// ============================================================================
+// E-MAILS (WooCommerce): Produktbilder und Logo
+// ============================================================================
+
+/**
+ * Produktbilder in der Bestellübersicht der WooCommerce-E-Mails anzeigen
+ * (Bestellbestätigung, Rechnung, ...). Standardmäßig sind sie ausgeschaltet.
+ */
+function micinterart_email_show_product_images($args) {
+    $args['show_image'] = true;
+    $args['image_size'] = [100, 100];
+    return $args;
+}
+add_filter('woocommerce_email_order_items_args', 'micinterart_email_show_product_images');
+
+/**
+ * E-Mail-Kopfbild: Ist unter WooCommerce → Einstellungen → E-Mails kein Bild gesetzt,
+ * wird das Website-Logo (Design → Anpassen → Website-Identität) verwendet.
+ */
+function micinterart_email_header_image_fallback($value) {
+    if (!empty($value)) {
+        return $value;
+    }
+
+    // In den WooCommerce-Einstellungen das Feld nicht scheinbar "gefüllt" anzeigen
+    if (is_admin() && isset($_GET['page']) && $_GET['page'] === 'wc-settings') {
+        return $value;
+    }
+
+    $logo_id = get_theme_mod('custom_logo');
+    if ($logo_id) {
+        $url = wp_get_attachment_image_url($logo_id, 'medium');
+        if ($url) {
+            return $url;
+        }
+    }
+
+    return $value;
+}
+add_filter('option_woocommerce_email_header_image', 'micinterart_email_header_image_fallback');
