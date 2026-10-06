@@ -332,12 +332,14 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
     position: relative;
     overflow: hidden;
     min-height: 400px;
+    background: #1a1a1a;
 }
 
+/* Ganzes Bild zeigen (nicht zuschneiden), Rand bleibt dunkel */
 .hero-image-wrapper img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
 }
 
@@ -437,6 +439,9 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
     }
     .hero-image-wrapper {
         min-height: 250px;
+    }
+    .hero-image-wrapper img {
+        height: auto;
     }
 }
 
