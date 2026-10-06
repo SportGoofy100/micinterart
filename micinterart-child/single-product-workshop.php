@@ -147,27 +147,6 @@ if ($datum) {
 
 $ist_nach_absprache = empty($datum);
 
-// „Was dich erwartet“-Felder
-function get_erwartet_field($nr, $key, $default, $product_id) {
-    $val = get_post_meta($product_id, "_workshop_erwartet_{$nr}_{$key}", true);
-    return !empty($val) ? $val : $default;
-}
-
-$felder = [
-    1 => ['emoji' => '🎨', 'titel' => $is_en ? 'All materials included' : 'Alle Materialien inklusive', 'text' => $is_en ? 'You don\'t need to bring anything - everything is prepared' : 'Du brauchst nichts mitzubringen – alles ist vorbereitet'],
-    3 => ['emoji' => '🎓', 'titel' => $is_en ? 'No prior knowledge needed' : 'Keine Vorkenntnisse nötig', 'text' => $is_en ? 'I will guide you step by step' : 'Ich begleite dich Schritt für Schritt'],
-    4 => ['emoji' => '🖼️', 'titel' => $is_en ? 'Your finished artwork' : 'Dein fertiges Kunstwerk', 'text' => $is_en ? 'To take home and proudly display' : 'Zum Mitnehmen und stolz nach Hause tragen'],
-    5 => ['emoji' => '☕', 'titel' => $is_en ? 'Inclusive:' : 'Inklusive:', 'text' => $preis_info ?: ($is_en ? 'Coffee, tea, water and small snacks' : 'Kaffee, Tee, Wasser und kleine Leckereien')],
-];
-
-// Parkplätze-Logik
-$parkplatz_text = '';
-if (empty($ort) || stripos($ort, 'morsbach') !== false) {
-    $parkplatz_text = $is_en ? 'Directly in front of the studio in Morsbach' : 'Direkt vor dem Atelier in Morsbach';
-} else {
-    $parkplatz_text = $is_en ? 'Please check parking options in advance.' : 'Bitte informiere dich vorab über die Parkmöglichkeiten vor Ort.';
-}
-
 // Altersempfehlung
 $alter_display = '';
 if ($alter_von || $alter_bis) {
@@ -715,67 +694,31 @@ wp_reset_postdata();
             <?php endif; ?>
 
             <?php
-            // "Was dich erwartet" Box
-            if ($felder) :
+            // "Was dich erwartet" Box: nur Felder mit Inhalt (Titel oder Beschreibung)
+            $erwartet_items = [];
+            for ($nr = 1; $nr <= 8; $nr++) {
+                $e_titel = trim((string) get_post_meta($product_id, "_workshop_erwartet_{$nr}_titel", true));
+                $e_text  = trim((string) get_post_meta($product_id, "_workshop_erwartet_{$nr}_text", true));
+                if ($e_titel === '' && $e_text === '') {
+                    continue;
+                }
+                $e_emoji = trim((string) get_post_meta($product_id, "_workshop_erwartet_{$nr}_emoji", true));
+                $erwartet_items[] = ['emoji' => $e_emoji, 'titel' => $e_titel, 'text' => $e_text];
+            }
+            if ($erwartet_items) :
             ?>
             <div class="workshop-expectations">
                 <h3>✨ <?php echo $is_en ? 'What to expect' : 'Was dich erwartet'; ?></h3>
                 <div class="workshop-expectations-grid">
+                    <?php foreach ($erwartet_items as $item) : ?>
                     <div class="workshop-expectations-item">
-                        <span><?php echo esc_html(get_erwartet_field(1, 'emoji', '🎨', $product_id)); ?></span>
+                        <?php if ($item['emoji'] !== '') : ?><span><?php echo esc_html($item['emoji']); ?></span><?php endif; ?>
                         <div>
-                            <strong><?php echo esc_html(get_erwartet_field(1, 'titel', $felder[1]['titel'], $product_id)); ?></strong>
-                            <span><?php echo esc_html(get_erwartet_field(1, 'text', $felder[1]['text'], $product_id)); ?></span>
+                            <?php if ($item['titel'] !== '') : ?><strong><?php echo esc_html($item['titel']); ?></strong><?php endif; ?>
+                            <?php if ($item['text'] !== '') : ?><span><?php echo esc_html($item['text']); ?></span><?php endif; ?>
                         </div>
                     </div>
-                    
-                    <div class="workshop-expectations-item">
-                        <span>👥</span>
-                        <div>
-                            <strong><?php echo $is_en ? 'Small groups' : 'Kleine Gruppen'; ?></strong>
-                            <span><?php echo $is_en ? 'Max. ' . ($max_teilnehmer ?: 8) . ' participants – personal guidance guaranteed' : 'Max. ' . ($max_teilnehmer ?: 8) . ' Teilnehmer – persönliche Betreuung garantiert'; ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="workshop-expectations-item">
-                        <span><?php echo esc_html(get_erwartet_field(3, 'emoji', '🎓', $product_id)); ?></span>
-                        <div>
-                            <strong><?php echo esc_html(get_erwartet_field(3, 'titel', $felder[3]['titel'], $product_id)); ?></strong>
-                            <span><?php echo esc_html(get_erwartet_field(3, 'text', $felder[3]['text'], $product_id)); ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="workshop-expectations-item">
-                        <span><?php echo esc_html(get_erwartet_field(4, 'emoji', '🖼️', $product_id)); ?></span>
-                        <div>
-                            <strong><?php echo esc_html(get_erwartet_field(4, 'titel', $felder[4]['titel'], $product_id)); ?></strong>
-                            <span><?php echo esc_html(get_erwartet_field(4, 'text', $felder[4]['text'], $product_id)); ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="workshop-expectations-item">
-                        <span><?php echo esc_html(get_erwartet_field(5, 'emoji', '☕', $product_id)); ?></span>
-                        <div>
-                            <strong><?php echo esc_html(get_erwartet_field(5, 'titel', $felder[5]['titel'], $product_id)); ?></strong>
-                            <span><?php echo esc_html(get_erwartet_field(5, 'text', $felder[5]['text'], $product_id)); ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="workshop-expectations-item">
-                        <span>🚗</span>
-                        <div>
-                            <strong><?php echo $is_en ? 'Free parking' : 'Kostenlose Parkplätze'; ?></strong>
-                            <span><?php echo esc_html($parkplatz_text); ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="workshop-expectations-item">
-                        <span>🗣️</span>
-                        <div>
-                            <strong><?php echo $is_en ? 'Course language' : 'Kurssprache'; ?></strong>
-                            <span><?php echo $is_en ? 'Course takes place in ' . $sprache_text : 'Kurs findet auf ' . $sprache_text . ' statt'; ?></span>
-                        </div>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
             <?php endif; ?>

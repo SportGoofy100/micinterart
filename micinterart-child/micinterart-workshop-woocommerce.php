@@ -489,17 +489,21 @@ class Micinterart_Workshop_WooCommerce {
         ];
         
         echo '<h3>' . __('Was dich erwartet', 'micinterart') . '</h3>';
-        echo '<p class="description">' . __('Feld 2, 6 und 7 werden automatisch aus deinen Eingaben generiert. Du kannst sie überschreiben.', 'micinterart') . '</p>';
+        echo '<p class="description">' . __('Ein Feld wird auf der Workshop-Seite nur angezeigt, wenn Titel oder Beschreibung ausgefüllt sind. Zum Ausblenden beides leeren und speichern. Felder 2, 6 und 7 werden bei einem neuen Workshop automatisch vorbelegt.', 'micinterart') . '</p>';
         
         for ($nr = 1; $nr <= 8; $nr++) {
             $emoji = get_post_meta($product_id, "_workshop_erwartet_{$nr}_emoji", true);
             $titel = get_post_meta($product_id, "_workshop_erwartet_{$nr}_titel", true);
             $text = get_post_meta($product_id, "_workshop_erwartet_{$nr}_text", true);
             
-            // Falls noch nichts gespeichert ist, Default-Werte verwenden
-            if (empty($emoji)) $emoji = $default_felder[$nr]['emoji'];
-            if (empty($titel)) $titel = $default_felder[$nr]['titel'];
-            if (empty($text)) $text = $default_felder[$nr]['text'];
+            // Nur die automatischen Felder 2, 6 und 7 werden bei einem neuen Workshop vorbelegt.
+            // Alle anderen Felder bleiben leer (Standardtext nur als Platzhalter) und erscheinen
+            // im Frontend nur, wenn Titel oder Beschreibung ausgefüllt sind.
+            if (in_array($nr, [2, 6, 7], true) && !metadata_exists('post', $product_id, "_workshop_erwartet_{$nr}_titel")) {
+                if (empty($emoji)) $emoji = $default_felder[$nr]['emoji'];
+                if (empty($titel)) $titel = $default_felder[$nr]['titel'];
+                if (empty($text)) $text = $default_felder[$nr]['text'];
+            }
             
             echo '<div class="options_group" style="border: 1px solid #eee; padding: 15px; margin-bottom: 15px; border-radius: 4px;">';
             echo '<h4 style="margin-top: 0;">Feld ' . $nr . '</h4>';

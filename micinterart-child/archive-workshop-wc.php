@@ -440,6 +440,11 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
     .hero-image-wrapper {
         min-height: 250px;
     }
+    /* Abzeichen liegen in einer Leiste über dem Bild statt darauf */
+    .hero-image-wrapper {
+        min-height: 0;
+        padding-top: 76px;
+    }
     .hero-image-wrapper img {
         height: auto;
     }
