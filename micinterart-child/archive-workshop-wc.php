@@ -823,9 +823,10 @@ function format_workshop_date($datum) {
     if (empty($datum)) {
         return 'Nach Absprache';
     }
-    $date_obj = date_create($datum);
+    $date_obj = date_create($datum, wp_timezone());
     if (!$date_obj) return $datum;
-    return $date_obj->format('l, d. F Y');
+    // wp_date übersetzt Wochentag und Monat in die Sprache der Seite
+    return wp_date('l, d. F Y', $date_obj->getTimestamp(), wp_timezone());
 }
 
 function format_workshop_time($post_id) {
@@ -966,20 +967,22 @@ function display_workshop_card($workshop, $is_archiv = false) {
 echo '<div class="workshops-container">';
 
 if ($is_en) {
-    echo '<h1 class="workshops-page-title">My Workshops</h1>';
-    echo '<div class="workshops-intro">';
-    echo '<p><strong>Discover your creativity!</strong></p>';
-    echo '<p>From painting to sculpture to creative techniques for children - find the perfect workshop for you.</p>';
-    echo '<p><strong>Come on by, I look forward to seeing you!</strong></p>';
-    echo '</div>';
+    $intro_title = 'Workshops for Everyone';
+    $intro_h2    = 'I invite you to my studio.';
+    $intro_text  = 'This is the place where you can switch off your mind and just create. Whether you are treating yourself to a timeout, laughing with friends, spending a special evening as a couple, or giving your children an unforgettable day – I will guide you and ensure you feel comfortable from the very first moment. The materials, the cocktails, the wine, the snacks – I will take care of everything. You only need to bring yourself.';
+    $intro_bye   = 'Come on by, I look forward to seeing you!';
 } else {
-    echo '<h1 class="workshops-page-title">Meine Workshops</h1>';
-    echo '<div class="workshops-intro">';
-    echo '<p><strong>Entdecke deine kreative Seite!</strong></p>';
-    echo '<p>Von Malerei über Skulptur bis hin zu kreativen Techniken für Kinder – hier findest du den perfekten Workshop für dich.</p>';
-    echo '<p><strong>Komm vorbei, ich freue mich auf dich!</strong></p>';
-    echo '</div>';
+    $intro_title = 'Workshops für jeden';
+    $intro_h2    = 'Ich lade dich ein in mein Atelier.';
+    $intro_text  = 'Hier ist der Ort, an dem du den Kopf ausschalten und einfach mal machen darfst. Ob du dir eine Auszeit gönnst, mit Freundinnen lachst, als Paar einen besonderen Abend verbringst oder deinen Kindern einen unvergesslichen Tag schenkst – ich begleite euch und sorge dafür, dass ihr euch vom ersten Moment an wohlfühlt. Die Materialien, die Cocktails, der Wein, die Snacks – darum kümmere ich mich. Ihr bringt nur euch mit.';
+    $intro_bye   = 'Komm vorbei, ich freue mich auf dich!';
 }
+echo '<h1 class="workshops-page-title">' . esc_html($intro_title) . '</h1>';
+echo '<div class="workshops-intro">';
+echo '<h2>' . esc_html($intro_h2) . '</h2>';
+echo '<p>' . esc_html($intro_text) . '</p>';
+echo '<p><strong>' . esc_html($intro_bye) . '</strong></p>';
+echo '</div>';
 
 // ============================================================================
 // HERO SECTION - Nächster Workshop

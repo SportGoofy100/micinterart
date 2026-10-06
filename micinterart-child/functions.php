@@ -572,3 +572,25 @@ foreach (['shop', 'cart', 'checkout', 'myaccount', 'terms'] as $micinterart_wc_p
     add_filter('woocommerce_get_' . $micinterart_wc_page . '_page_id', 'micinterart_wc_translate_page_id');
 }
 unset($micinterart_wc_page);
+
+
+// ============================================================================
+// ADMIN: Produktliste aufgeräumt
+// ============================================================================
+
+/**
+ * Die Spalte "SEO Details" von Rank Math wird in der Produktliste sehr schmal und dadurch
+ * extrem hoch (jedes Wort in einer eigenen Zeile). Feste Mindestbreite verhindert das.
+ */
+function micinterart_admin_product_list_styles() {
+    $screen = get_current_screen();
+    if (!$screen || $screen->id !== 'edit-product') {
+        return;
+    }
+    echo '<style>
+        .post-type-product .wp-list-table th.column-rank_math_seo_details,
+        .post-type-product .wp-list-table td.column-rank_math_seo_details { width: 170px; min-width: 170px; }
+        .post-type-product .wp-list-table td.column-rank_math_seo_details { word-break: normal; overflow-wrap: normal; }
+    </style>';
+}
+add_action('admin_head', 'micinterart_admin_product_list_styles');
