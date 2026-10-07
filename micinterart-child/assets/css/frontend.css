@@ -157,12 +157,3 @@
         gap: 14px;
     }
 }
-
-/* Workshop mit Preisen nach Teilnehmerzahl: Auswahl der Gruppengröße */
-.workshop-anmeldung-buttons form.variations_form { width: 100%; }
-.workshop-anmeldung-buttons table.variations { width: 100%; margin-bottom: 16px; }
-.workshop-anmeldung-buttons table.variations th,
-.workshop-anmeldung-buttons table.variations td { display: block; padding: 4px 0; text-align: left; }
-.workshop-anmeldung-buttons table.variations select { width: 100%; min-height: 48px; font-size: 16px; }
-.workshop-anmeldung-buttons .woocommerce-variation-price { font-size: 1.3em; font-weight: 700; margin: 8px 0 14px; }
-.workshop-anmeldung-buttons .woocommerce-variation-add-to-cart { display: flex; flex-direction: column; gap: 10px; }

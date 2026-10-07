@@ -26,10 +26,17 @@ if (!class_exists('WooCommerce')) {
  */
 
 /**
- * Gemeinsame Workshop-Logik für beide Workshop-Typen
- * ('workshop' = Festpreis, 'workshop_variable' = Preise nach Teilnehmerzahl)
+ * Workshop-Produktklasse - Erbt von WC_Product_Simple
+ * Fügt Workshop-spezifische Logik hinzu
  */
-trait Micinterart_Workshop_Product_Trait {
+class WC_Product_Workshop extends WC_Product_Simple {
+    
+    /**
+     * Überschreibt den Produkttyp
+     */
+    public function get_type() {
+        return 'workshop';
+    }
 
     // Workshops sind Dienstleistungen: kein Versand
     public function is_virtual() {
@@ -39,23 +46,24 @@ trait Micinterart_Workshop_Product_Trait {
     public function needs_shipping() {
         return false;
     }
-
+    
     /**
      * Überschreibt die Standard-Preis-Anzeige
      * Zeigt ggf. Preis-Info an
      */
     public function get_price_html($deprecated = '') {
+        $price = $this->get_price();
         $preis_info = $this->get_meta('_workshop_preis_info', true);
-
+        
         $html = parent::get_price_html($deprecated);
-
+        
         if (!empty($preis_info)) {
             $html .= '<small class="workshop-preis-info">' . esc_html($preis_info) . '</small>';
         }
-
+        
         return $html;
     }
-
+    
     /**
      * Automatische Stock-Berechnung aus Max. Teilnehmer
      */
@@ -82,38 +90,15 @@ trait Micinterart_Workshop_Product_Trait {
                 $this->save();
             }
         }
-
+        
         return $stock;
     }
-
+    
     /**
      * Prüft ob das Produkt ein Workshop ist
      */
     public function is_workshop() {
-        return true;
-    }
-}
-
-/**
- * Workshop-Produktklasse (Festpreis) - Erbt von WC_Product_Simple
- */
-class WC_Product_Workshop extends WC_Product_Simple {
-    use Micinterart_Workshop_Product_Trait;
-
-    public function get_type() {
-        return 'workshop';
-    }
-}
-
-/**
- * Workshop mit Preisen nach Teilnehmerzahl - Erbt von WC_Product_Variable.
- * Jede Variation ist ein Preis für eine Gruppengröße (Plätze siehe _workshop_personen).
- */
-class WC_Product_Workshop_Variable extends WC_Product_Variable {
-    use Micinterart_Workshop_Product_Trait;
-
-    public function get_type() {
-        return 'workshop_variable';
+        return $this->get_type() === 'workshop';
     }
 }
 
@@ -144,21 +129,6 @@ class Micinterart_Workshop_WooCommerce {
         
         // Produktklasse für Workshop-Typ registrieren
         add_filter('woocommerce_product_class', [$this, 'add_workshop_product_class'], 10, 2);
-
-        // Workshop mit Preisen nach Teilnehmerzahl (variables Produkt): Datenspeicher, Warenkorb, Plätze
-        add_filter('woocommerce_data_stores', [$this, 'register_variable_data_store']);
-        add_action('woocommerce_workshop_variable_add_to_cart', 'woocommerce_variable_add_to_cart');
-        add_filter('woocommerce_add_to_cart_handler', [$this, 'variable_add_to_cart_handler'], 10, 2);
-        add_filter('woocommerce_product_variation_get_virtual', [$this, 'variation_is_virtual'], 10, 2);
-        add_filter('woocommerce_variation_is_purchasable', [$this, 'variation_is_purchasable'], 10, 2);
-        add_filter('woocommerce_variation_is_active', [$this, 'variation_is_active'], 10, 2);
-        // Eine Gruppengröße pro Position (Menge fest 1): Die Teilnehmerzahl steckt in der Variation
-        add_filter('woocommerce_is_sold_individually', [$this, 'variable_sold_individually'], 10, 2);
-        add_filter('woocommerce_order_item_quantity', [$this, 'order_item_places'], 10, 3);
-        add_filter('woocommerce_add_to_cart_validation', [$this, 'validate_places_on_add'], 10, 4);
-        add_action('woocommerce_check_cart_items', [$this, 'validate_places_in_cart']);
-        add_action('woocommerce_variation_options_pricing', [$this, 'render_variation_personen_field'], 10, 3);
-        add_action('woocommerce_save_product_variation', [$this, 'save_variation_personen_field'], 10, 2);
         
         // Felder registrieren
         add_action('init', [$this, 'register_workshop_product_fields']);
@@ -196,177 +166,17 @@ class Micinterart_Workshop_WooCommerce {
      */
     public function add_workshop_product_type($types) {
         $types['workshop'] = __('Workshop', 'micinterart');
-        $types['workshop_variable'] = __('Workshop (Preis nach Teilnehmerzahl)', 'micinterart');
         return $types;
     }
-
+    
     /**
-     * Registriert die Workshop-Klassen für die Produkttypen 'workshop' und 'workshop_variable'
+     * Registriert die WC_Product_Workshop Klasse für den Produkttyp 'workshop'
      */
     public function add_workshop_product_class($classname, $product_type) {
         if ($product_type === 'workshop') {
             $classname = 'WC_Product_Workshop';
-        } elseif ($product_type === 'workshop_variable') {
-            $classname = 'WC_Product_Workshop_Variable';
         }
         return $classname;
-    }
-
-    /**
-     * Der variable Workshop braucht den Datenspeicher für variable Produkte
-     * (sonst fällt WooCommerce auf den für einfache Produkte zurück und kennt keine Variationen)
-     */
-    public function register_variable_data_store($stores) {
-        $stores['product-workshop_variable'] = 'WC_Product_Variable_Data_Store_CPT';
-        return $stores;
-    }
-
-    /**
-     * Beim Hinzufügen zum Warenkorb wie ein variables Produkt behandeln
-     */
-    public function variable_add_to_cart_handler($handler, $product) {
-        return $handler === 'workshop_variable' ? 'variable' : $handler;
-    }
-
-    public function variable_sold_individually($sold_individually, $product) {
-        return micinterart_is_workshop_variable($product) ? true : $sold_individually;
-    }
-
-    /**
-     * Variationen eines Workshops sind Dienstleistungen: kein Versand
-     */
-    public function variation_is_virtual($virtual, $variation) {
-        return micinterart_is_workshop_variable($variation) ? true : $virtual;
-    }
-
-    /**
-     * Anmeldung muss offen sein (gilt für alle Variationen des Workshops)
-     */
-    public function variation_is_purchasable($is_purchasable, $variation) {
-        if (!$is_purchasable || !micinterart_is_workshop_variable($variation)) {
-            return $is_purchasable;
-        }
-        $parent = wc_get_product($variation->get_parent_id());
-        if (!$parent) {
-            return $is_purchasable;
-        }
-        $status = $parent->get_meta('_workshop_status', true) ?: 'geplant';
-        return in_array($status, ['anmeldung_offen', 'fast_ausgebucht'], true);
-    }
-
-    /**
-     * Gruppengrößen, für die nicht mehr genug Plätze frei sind, sind nicht wählbar
-     */
-    public function variation_is_active($active, $variation) {
-        if (!$active || !micinterart_is_workshop_variable($variation)) {
-            return $active;
-        }
-        $free = micinterart_workshop_free_places($variation->get_parent_id());
-        if ($free === null) {
-            return $active;
-        }
-        return micinterart_workshop_personen($variation) <= $free;
-    }
-
-    /**
-     * Lagerbestand sinkt (bzw. steigt) um die gebuchten Plätze, nicht um die Anzahl der Positionen
-     */
-    public function order_item_places($quantity, $order, $item) {
-        if (!is_a($item, 'WC_Order_Item_Product')) {
-            return $quantity;
-        }
-        $product = $item->get_product();
-        if ($product && micinterart_is_workshop_variable($product)) {
-            return (int) $quantity * micinterart_workshop_personen($product);
-        }
-        return $quantity;
-    }
-
-    /**
-     * Beim Hinzufügen prüfen, ob für die gewählte Gruppengröße noch genug Plätze frei sind
-     */
-    public function validate_places_on_add($passed, $product_id, $quantity, $variation_id = 0) {
-        if (!$passed || !$variation_id) {
-            return $passed;
-        }
-        $variation = wc_get_product($variation_id);
-        if (!$variation || !micinterart_is_workshop_variable($variation)) {
-            return $passed;
-        }
-        $free = micinterart_workshop_free_places($product_id);
-        if ($free === null) {
-            return $passed;
-        }
-        $wanted = micinterart_workshop_personen($variation) * max(1, (int) $quantity)
-            + micinterart_workshop_cart_places($product_id);
-        if ($wanted > $free) {
-            wc_add_notice(
-                sprintf(
-                    _n('Für diesen Workshop ist nur noch %d Platz frei.', 'Für diesen Workshop sind nur noch %d Plätze frei.', $free, 'micinterart'),
-                    $free
-                ),
-                'error'
-            );
-            return false;
-        }
-        return $passed;
-    }
-
-    /**
-     * Warenkorb/Kasse: Die gebuchten Plätze dürfen die freien Plätze nicht übersteigen
-     */
-    public function validate_places_in_cart() {
-        if (!function_exists('WC') || !WC()->cart) {
-            return;
-        }
-        $checked = [];
-        foreach (WC()->cart->get_cart() as $cart_item) {
-            $parent_id = (int) ($cart_item['product_id'] ?? 0);
-            $product = $cart_item['data'] ?? null;
-            if (!$parent_id || isset($checked[$parent_id]) || !$product || !micinterart_is_workshop_variable($product)) {
-                continue;
-            }
-            $checked[$parent_id] = true;
-            $free = micinterart_workshop_free_places($parent_id);
-            if ($free !== null && micinterart_workshop_cart_places($parent_id) > $free) {
-                wc_add_notice(
-                    sprintf(
-                        __('Für „%1$s“ sind nur noch %2$d Plätze frei. Bitte passe deine Auswahl im Warenkorb an.', 'micinterart'),
-                        get_the_title($parent_id),
-                        $free
-                    ),
-                    'error'
-                );
-            }
-        }
-    }
-
-    /**
-     * Feld "Plätze" je Variation (Gruppengröße), nur bei variablen Workshops
-     */
-    public function render_variation_personen_field($loop, $variation_data, $variation) {
-        if (WC_Product_Factory::get_product_type($variation->post_parent) !== 'workshop_variable') {
-            return;
-        }
-        woocommerce_wp_text_input([
-            'id'            => "_workshop_personen{$loop}",
-            'name'          => "_workshop_personen[{$loop}]",
-            'value'         => get_post_meta($variation->ID, '_workshop_personen', true),
-            'label'         => __('Plätze (Personen)', 'micinterart'),
-            'desc_tip'      => true,
-            'description'   => __('Wie viele Plätze diese Gruppengröße belegt, z. B. 4 bei „4 Personen“. Der Preis in diesem Feld gilt für die ganze Gruppe.', 'micinterart'),
-            'type'          => 'number',
-            'custom_attributes' => ['min' => '1', 'step' => '1'],
-            'placeholder'   => '1',
-            'wrapper_class' => 'form-row form-row-first',
-        ]);
-    }
-
-    public function save_variation_personen_field($variation_id, $i) {
-        if (isset($_POST['_workshop_personen'][$i])) {
-            $personen = absint(wp_unslash($_POST['_workshop_personen'][$i]));
-            update_post_meta($variation_id, '_workshop_personen', $personen > 0 ? $personen : '');
-        }
     }
     
     /**
@@ -425,7 +235,7 @@ class Micinterart_Workshop_WooCommerce {
         $tabs['workshop'] = [
             'label'    => __('Workshop-Details', 'micinterart'),
             'target'   => 'workshop_product_data',
-            'class'    => ['show_if_workshop', 'show_if_workshop_variable'],
+            'class'    => ['show_if_workshop'],
             'priority' => 5,
         ];
 
@@ -437,19 +247,6 @@ class Micinterart_Workshop_WooCommerce {
             if (isset($tabs[$key])) {
                 $tabs[$key]['class'][] = 'hide_if_workshop';
             }
-        }
-
-        // Variabler Workshop: Attribute und Variationen werden gebraucht, der Rest bleibt ausgeblendet
-        foreach (['shipping', 'linked_product', 'inventory'] as $key) {
-            if (isset($tabs[$key])) {
-                $tabs[$key]['class'][] = 'hide_if_workshop_variable';
-            }
-        }
-        if (isset($tabs['variations'])) {
-            $tabs['variations']['class'][] = 'show_if_workshop_variable';
-        }
-        if (isset($tabs['attribute'])) {
-            $tabs['attribute']['class'][] = 'show_if_workshop_variable';
         }
 
         return $tabs;
@@ -467,21 +264,9 @@ class Micinterart_Workshop_WooCommerce {
         <script>
         jQuery(function($) {
             // Preisfelder von WC ausblenden (Preis kommt aus "Workshop-Details")
-            $('#general_product_data .options_group.pricing').addClass('hide_if_workshop hide_if_workshop_variable');
+            $('#general_product_data .options_group.pricing').addClass('hide_if_workshop');
             // Steuer-Felder für Workshops anzeigen
-            $('#general_product_data .options_group').has('#_tax_status, #_tax_class').addClass('show_if_workshop show_if_workshop_variable');
-            // Variabler Workshop: Preis kommt aus den Variationen, ein Paarpreis passt nicht dazu
-            $('._workshop_preis_field, ._workshop_is_paar_preis_field').addClass('hide_if_workshop_variable');
-            // Alles, was WooCommerce für variable Produkte zeigt ("Für Variationen verwenden",
-            // Variationen-Reiter ...), auch für den variablen Workshop zeigen
-            function showVariableElements() {
-                if ($('select#product-type').val() === 'workshop_variable') {
-                    $('.show_if_variable').addClass('show_if_workshop_variable').not('.hide_if_workshop_variable').show();
-                }
-            }
-            $('.show_if_variable').addClass('show_if_workshop_variable');
-            $('select#product-type').on('change', showVariableElements);
-            $(document).ajaxComplete(showVariableElements);
+            $('#general_product_data .options_group').has('#_tax_status, #_tax_class').addClass('show_if_workshop');
             // Typ-Optionen (Virtuell, Herunterladbar, Elektrogerät, Differenzbesteuert,
             // Lebensmittel ...) sind Checkbox-Labels im Kopf der Box, außerhalb der Panels.
             var $typeOptions = $('#woocommerce-product-data label').filter(function() {
@@ -490,7 +275,7 @@ class Micinterart_Workshop_WooCommerce {
             });
             function toggleTypeOptions() {
                 var productType = $('select#product-type').val();
-                var isWorkshop = (productType === 'workshop' || productType === 'workshop_variable');
+                var isWorkshop = (productType === 'workshop');
 
                 // show_if_workshop / hide_if_workshop (Reiter, Preisfelder) schaltet WooCommerce selbst um.
                 // Hier nur die Typ-Optionen; der Werk-Typ regelt sie in seinem eigenen Script.
@@ -756,7 +541,7 @@ class Micinterart_Workshop_WooCommerce {
      * Speichert die Workshop-Felder
      */
     public function save_workshop_product_fields($product) {
-        if (!is_a($product, 'WC_Product') || !in_array($product->get_type(), ['workshop', 'workshop_variable'], true)) {
+        if (!is_a($product, 'WC_Product') || $product->get_type() !== 'workshop') {
             return;
         }
 
@@ -810,7 +595,7 @@ class Micinterart_Workshop_WooCommerce {
         }
 
         // WooCommerce-Preis aus _workshop_preis übernehmen (Warenkorb nutzt _price)
-        if ($product->get_type() === 'workshop' && isset($_POST['_workshop_preis']) && $_POST['_workshop_preis'] !== '') {
+        if (isset($_POST['_workshop_preis']) && $_POST['_workshop_preis'] !== '') {
             $wc_preis = wc_format_decimal(wp_unslash($_POST['_workshop_preis']));
             $product->set_regular_price($wc_preis);
             $product->set_virtual(true);
@@ -833,11 +618,7 @@ class Micinterart_Workshop_WooCommerce {
      * Workshop-spezifische Validierung: Prüfe ob Lagerbestand > 0
      */
     public function workshop_product_is_purchasable($is_purchasable, $product) {
-        if ($product->get_type() === 'workshop_variable') {
-            // Preise und Plätze regeln die Variationen; hier zählt nur, ob die Anmeldung offen ist
-            $status = $product->get_meta('_workshop_status', true) ?: 'geplant';
-            $is_purchasable = $is_purchasable && in_array($status, ['anmeldung_offen', 'fast_ausgebucht'], true);
-        } elseif ($product->get_type() === 'workshop') {
+        if ($product->get_type() === 'workshop') {
             $stock = $product->get_stock_quantity();
             $status = $product->get_meta('_workshop_status', true) ?: 'geplant';
             $registration_open = in_array($status, ['anmeldung_offen', 'fast_ausgebucht'], true);
@@ -852,7 +633,7 @@ class Micinterart_Workshop_WooCommerce {
      * Keeps the booking counter aligned with WooCommerce's stock reductions and restores.
      */
     public function sync_workshop_bookings_from_stock($product) {
-        if (!is_a($product, 'WC_Product') || !in_array($product->get_type(), ['workshop', 'workshop_variable'], true)) {
+        if (!is_a($product, 'WC_Product') || $product->get_type() !== 'workshop') {
             return;
         }
 
@@ -894,15 +675,15 @@ class Micinterart_Workshop_WooCommerce {
         }
 
         foreach ($order->get_items('line_item') as $item) {
-            $product = micinterart_workshop_main_product($item->get_product());
-            if ($product && micinterart_is_workshop_type($product)) {
+            $product = $item->get_product();
+            if ($product && $product->get_type() === 'workshop') {
                 $this->sync_workshop_bookings_from_stock($product);
             }
         }
     }
 
     public function render_workshop_admin_stock_html($stock_html, $product) {
-        if (!is_a($product, 'WC_Product') || !in_array($product->get_type(), ['workshop', 'workshop_variable'], true)) {
+        if (!is_a($product, 'WC_Product') || $product->get_type() !== 'workshop') {
             return $stock_html;
         }
 
@@ -961,7 +742,7 @@ class Micinterart_Workshop_WooCommerce {
 
         foreach ($items as $item) {
             $product = $item->get_product();
-            if (!$product || !micinterart_is_workshop_type($product)) {
+            if (!$product || $product->get_type() !== 'workshop') {
                 return false;
             }
         }
@@ -973,85 +754,10 @@ class Micinterart_Workshop_WooCommerce {
 // Die Initialisierung (get_instance) erfolgt in functions.php
 // und muss früh genug passieren, damit der Produkttyp registriert wird.
 
-/**
- * Das Workshop-Hauptprodukt: bei einer Variation das übergeordnete Produkt, sonst das Produkt selbst
- */
-function micinterart_workshop_main_product($product) {
-    if (is_a($product, 'WC_Product_Variation')) {
-        $parent = wc_get_product($product->get_parent_id());
-        return $parent ?: null;
-    }
-    return is_a($product, 'WC_Product') ? $product : null;
-}
-
-/**
- * Workshop-Typ ('workshop' oder 'workshop_variable') eines Produkts bzw. des Hauptprodukts einer Variation;
- * leer, wenn es kein Workshop ist. Liest bei Variationen nur den Typ, ohne das Hauptprodukt zu laden.
- */
-function micinterart_workshop_type_of($product) {
-    if (!is_a($product, 'WC_Product')) {
-        return '';
-    }
-    $type = is_a($product, 'WC_Product_Variation')
-        ? WC_Product_Factory::get_product_type($product->get_parent_id())
-        : $product->get_type();
-    return in_array($type, ['workshop', 'workshop_variable'], true) ? $type : '';
-}
-
-/**
- * Ist das Produkt (oder bei einer Variation das Hauptprodukt) ein Workshop? (Festpreis oder variabel)
- */
-function micinterart_is_workshop_type($product) {
-    return micinterart_workshop_type_of($product) !== '';
-}
-
-/**
- * Gehört das Produkt zu einem variablen Workshop (Preis nach Teilnehmerzahl)?
- * Gilt für das Hauptprodukt und für seine Variationen.
- */
-function micinterart_is_workshop_variable($product) {
-    return micinterart_workshop_type_of($product) === 'workshop_variable';
-}
-
-/**
- * Plätze, die eine Variation (Gruppengröße) belegt; mindestens 1, bei allen anderen Produkten 1
- */
-function micinterart_workshop_personen($product) {
-    if (!is_a($product, 'WC_Product_Variation') || !micinterart_is_workshop_variable($product)) {
-        return 1;
-    }
-    return max(1, (int) get_post_meta($product->get_id(), '_workshop_personen', true));
-}
-
-/**
- * Freie Plätze eines Workshops; null = keine Begrenzung hinterlegt
- */
-function micinterart_workshop_free_places($product_id) {
-    $product = wc_get_product($product_id);
-    if (!$product || !$product->managing_stock()) {
-        return null;
-    }
-    $stock = $product->get_stock_quantity();
-    return ($stock === null || $stock === '') ? null : max(0, (int) $stock);
-}
-
-/**
- * Plätze, die im Warenkorb für diesen Workshop schon belegt sind
- */
-function micinterart_workshop_cart_places($product_id) {
-    $places = 0;
-    if (function_exists('WC') && WC()->cart) {
-        foreach (WC()->cart->get_cart() as $cart_item) {
-            if ((int) ($cart_item['product_id'] ?? 0) !== (int) $product_id || empty($cart_item['data'])) {
-                continue;
-            }
-            $places += micinterart_workshop_personen($cart_item['data']) * (int) $cart_item['quantity'];
-        }
-    }
-    return $places;
-}
-
 // Hilfsfunktion zum Prüfen ob ein Produkt ein Workshop ist
 function micinterart_wc_is_workshop_product($product) {
-    return micinterart_is_workshop_type($product);
+    if (!is_a($product, 'WC_Product')) {
+        return false;
+    }
+    return $product->get_type() === 'workshop';
 }

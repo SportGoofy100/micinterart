@@ -51,9 +51,6 @@ class Micinterart_Workshop_Checkout {
         add_action('woocommerce_update_product', [$this, 'flush_workshop_ids_cache']);
         add_action('woocommerce_new_product', [$this, 'flush_workshop_ids_cache']);
         add_action('woocommerce_delete_product', [$this, 'flush_workshop_ids_cache']);
-        add_action('woocommerce_new_product_variation', [$this, 'flush_workshop_ids_cache']);
-        add_action('woocommerce_update_product_variation', [$this, 'flush_workshop_ids_cache']);
-        add_action('woocommerce_delete_product_variation', [$this, 'flush_workshop_ids_cache']);
     }
 
     // ------------------------------------------------------------------
@@ -110,9 +107,8 @@ class Micinterart_Workshop_Checkout {
         $positions = [];
         $required = 0;
         foreach ($order->get_items('line_item') as $item) {
-            $product = $item->get_product();
-            $quantity = $this->item_places($product, (int) $item->get_quantity());
-            if ($quantity > 1 && $this->is_workshop_product($product)) {
+            $quantity = (int) $item->get_quantity();
+            if ($quantity > 1 && $this->is_workshop_product($item->get_product())) {
                 $positions[] = [$item, $quantity - 1];
                 $required += $quantity - 1;
             }
@@ -185,7 +181,7 @@ class Micinterart_Workshop_Checkout {
                 [
                     'taxonomy' => 'product_type',
                     'field'    => 'slug',
-                    'terms'    => ['workshop', 'workshop_variable'],
+                    'terms'    => 'workshop',
                 ],
                 [
                     'taxonomy' => 'product_cat',
@@ -194,21 +190,7 @@ class Micinterart_Workshop_Checkout {
                 ],
             ],
         ]);
-        $ids = array_map('intval', $ids);
-
-        // Bei variablen Workshops zählen auch die Variationen (im Warenkorb liegt die Variation)
-        if (!empty($ids)) {
-            $variation_ids = get_posts([
-                'post_type'        => 'product_variation',
-                'post_status'      => 'any',
-                'posts_per_page'   => -1,
-                'fields'           => 'ids',
-                'no_found_rows'    => true,
-                'post_parent__in'  => $ids,
-            ]);
-            $ids = array_merge($ids, array_map('intval', $variation_ids));
-        }
-        $ids = array_values(array_unique($ids));
+        $ids = array_values(array_unique(array_map('intval', $ids)));
 
         set_transient(self::WORKSHOP_IDS_TRANSIENT, $ids, 6 * HOUR_IN_SECONDS);
         return $ids;
@@ -220,7 +202,7 @@ class Micinterart_Workshop_Checkout {
 
     public function render_participant_fields($checkout) {
         foreach ($this->get_workshop_cart_items() as $cart_item_key => $cart_item) {
-            $quantity = $this->item_places($cart_item['data'] ?? null, (int) $cart_item['quantity']);
+            $quantity = (int) $cart_item['quantity'];
             if ($quantity <= 1) {
                 continue;
             }
@@ -243,7 +225,7 @@ class Micinterart_Workshop_Checkout {
 
     public function validate_participant_fields() {
         foreach ($this->get_workshop_cart_items() as $cart_item_key => $cart_item) {
-            $quantity = $this->item_places($cart_item['data'] ?? null, (int) $cart_item['quantity']);
+            $quantity = (int) $cart_item['quantity'];
             if ($quantity <= 1) {
                 continue;
             }
@@ -266,7 +248,7 @@ class Micinterart_Workshop_Checkout {
 
     public function save_participant_line_item($item, $cart_item_key, $values, $order) {
         $product = $values['data'] ?? null;
-        $quantity = $this->item_places($product, isset($values['quantity']) ? (int) $values['quantity'] : 1);
+        $quantity = isset($values['quantity']) ? (int) $values['quantity'] : 1;
 
         if ($quantity <= 1 || !$this->is_workshop_product($product)) {
             return;
@@ -292,13 +274,6 @@ class Micinterart_Workshop_Checkout {
         }));
     }
     
-    /**
-     * Belegte Plätze einer Position: Gruppengröße der Variation mal Menge
-     */
-    private function item_places($product, $quantity) {
-        return $product ? micinterart_workshop_personen($product) * max(1, (int) $quantity) : max(1, (int) $quantity);
-    }
-
     /**
      * Prüft ob Workshop-Produkte im Warenkorb sind
      */
@@ -336,7 +311,7 @@ class Micinterart_Workshop_Checkout {
             return false;
         }
 
-        if (micinterart_is_workshop_type($product)) {
+        if ($product->get_type() === 'workshop') {
             return true;
         }
         
@@ -375,11 +350,6 @@ class Micinterart_Workshop_Checkout {
         foreach ($cart->get_cart() as $cart_item) {
             $product = $cart_item['data'] ?? null;
             if (!$product || !$this->is_workshop_product($product)) {
-                continue;
-            }
-
-            // Gruppenpreise (variabler Workshop) sind pauschal: kein Geschwister- oder Paarrabatt
-            if (micinterart_is_workshop_variable($product)) {
                 continue;
             }
 
@@ -444,11 +414,6 @@ class Micinterart_Workshop_Checkout {
         foreach ($cart->get_cart() as $cart_item) {
             $product = $cart_item['data'] ?? null;
             if (!$product || !$this->is_workshop_product($product)) {
-                continue;
-            }
-
-            // Gruppenpreise (variabler Workshop) sind pauschal: kein Geschwister- oder Paarrabatt
-            if (micinterart_is_workshop_variable($product)) {
                 continue;
             }
             if ($product->get_meta('_workshop_is_paar_preis', true) !== 'yes') {

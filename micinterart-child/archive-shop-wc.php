@@ -147,7 +147,7 @@ $atelier_title = $is_en ? 'Atelier Shop' : 'Atelier-Shop';
 $other_tax_query = [[
     'taxonomy' => 'product_type',
     'field'    => 'slug',
-    'terms'    => ['werk', 'workshop', 'workshop_variable'],
+    'terms'    => ['werk', 'workshop'],
     'operator' => 'NOT IN',
 ]];
 
@@ -175,7 +175,7 @@ if ($is_atelier_page) {
         'tax_query'      => [[
             'taxonomy' => 'product_type',
             'field'    => 'slug',
-            'terms'    => ['workshop', 'workshop_variable'],
+            'terms'    => 'workshop',
         ]],
         // der nächste anstehende Termin (ohne Datum zählt ebenfalls)
         'meta_query'     => [
