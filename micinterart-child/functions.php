@@ -117,6 +117,12 @@ function micinterart_load_workshop_wc_includes() {
         }
     }
     
+    // SEO: Event-Daten für Workshops
+    $seo_file = get_stylesheet_directory() . '/includes/seo.php';
+    if (file_exists($seo_file)) {
+        require_once $seo_file;
+    }
+
     // Workshop Checkout Anpassungen (Teilnehmerfelder, Rabatte)
     $workshop_checkout_file = get_stylesheet_directory() . '/includes/workshop-checkout.php';
     if (file_exists($workshop_checkout_file)) {
