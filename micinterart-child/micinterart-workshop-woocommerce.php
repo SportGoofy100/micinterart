@@ -215,7 +215,7 @@ class Micinterart_Workshop_WooCommerce {
         
         // "Was dich erwartet" Felder
         for ($i = 1; $i <= 8; $i++) {
-            foreach (['emoji', 'titel', 'text'] as $part) {
+            foreach (['titel', 'text'] as $part) {
                 register_post_meta('product', "_workshop_erwartet_{$i}_{$part}", [
                     'type' => 'string',
                     'single' => true,
@@ -478,21 +478,20 @@ class Micinterart_Workshop_WooCommerce {
         
         // Default-Felder für alle 8 Slots
         $default_felder = [
-            1 => ['emoji' => '🎨', 'titel' => 'Alle Materialien inklusive', 'text' => 'Du brauchst nichts mitzubringen – alles ist vorbereitet'],
-            2 => ['emoji' => '👥', 'titel' => 'Kleine Gruppen', 'text' => $max_teilnehmer ? 'Maximal ' . esc_html($max_teilnehmer) . ' Teilnehmer für individuelle Betreuung' : 'Intensive Betreuung in kleiner Runde'],
-            3 => ['emoji' => '🎓', 'titel' => 'Keine Vorkenntnisse nötig', 'text' => 'Ich begleite dich Schritt für Schritt'],
-            4 => ['emoji' => '🖼️', 'titel' => 'Dein fertiges Kunstwerk', 'text' => 'Zum Mitnehmen und stolz nach Hause tragen'],
-            5 => ['emoji' => '☕', 'titel' => 'Inklusive:', 'text' => 'Kaffee, Tee, Wasser und kleine Leckereien'],
-            6 => ['emoji' => '🅿️', 'titel' => 'Parkplätze', 'text' => $ort ? 'Kostenlose Parkplätze vor Ort in ' . esc_html($ort) : 'Parkmöglichkeiten in der Nähe'],
-            7 => ['emoji' => '💬', 'titel' => 'Kurssprache', 'text' => $sprache ? 'Der Workshop findet auf ' . esc_html(ucfirst($sprache)) . ' statt' : 'Deutsch'],
-            8 => ['emoji' => '🎁', 'titel' => 'Überraschung', 'text' => 'Eine kleine Überraschung wartet auf dich'],
+            1 => ['titel' => 'Alle Materialien inklusive', 'text' => 'Du brauchst nichts mitzubringen – alles ist vorbereitet'],
+            2 => ['titel' => 'Kleine Gruppen', 'text' => $max_teilnehmer ? 'Maximal ' . esc_html($max_teilnehmer) . ' Teilnehmer für individuelle Betreuung' : 'Intensive Betreuung in kleiner Runde'],
+            3 => ['titel' => 'Keine Vorkenntnisse nötig', 'text' => 'Ich begleite dich Schritt für Schritt'],
+            4 => ['titel' => 'Dein fertiges Kunstwerk', 'text' => 'Zum Mitnehmen und stolz nach Hause tragen'],
+            5 => ['titel' => 'Inklusive:', 'text' => 'Kaffee, Tee, Wasser und kleine Leckereien'],
+            6 => ['titel' => 'Parkplätze', 'text' => $ort ? 'Kostenlose Parkplätze vor Ort in ' . esc_html($ort) : 'Parkmöglichkeiten in der Nähe'],
+            7 => ['titel' => 'Kurssprache', 'text' => $sprache ? 'Der Workshop findet auf ' . esc_html(ucfirst($sprache)) . ' statt' : 'Deutsch'],
+            8 => ['titel' => 'Überraschung', 'text' => 'Eine kleine Überraschung wartet auf dich'],
         ];
         
         echo '<h3>' . __('Was dich erwartet', 'micinterart') . '</h3>';
         echo '<p class="description">' . __('Ein Feld wird auf der Workshop-Seite nur angezeigt, wenn Titel oder Beschreibung ausgefüllt sind. Zum Ausblenden beides leeren und speichern. Felder 2, 6 und 7 werden bei einem neuen Workshop automatisch vorbelegt.', 'micinterart') . '</p>';
         
         for ($nr = 1; $nr <= 8; $nr++) {
-            $emoji = get_post_meta($product_id, "_workshop_erwartet_{$nr}_emoji", true);
             $titel = get_post_meta($product_id, "_workshop_erwartet_{$nr}_titel", true);
             $text = get_post_meta($product_id, "_workshop_erwartet_{$nr}_text", true);
             
@@ -500,19 +499,12 @@ class Micinterart_Workshop_WooCommerce {
             // Alle anderen Felder bleiben leer (Standardtext nur als Platzhalter) und erscheinen
             // im Frontend nur, wenn Titel oder Beschreibung ausgefüllt sind.
             if (in_array($nr, [2, 6, 7], true) && !metadata_exists('post', $product_id, "_workshop_erwartet_{$nr}_titel")) {
-                if (empty($emoji)) $emoji = $default_felder[$nr]['emoji'];
                 if (empty($titel)) $titel = $default_felder[$nr]['titel'];
                 if (empty($text)) $text = $default_felder[$nr]['text'];
             }
             
             echo '<div class="options_group" style="border: 1px solid #eee; padding: 15px; margin-bottom: 15px; border-radius: 4px;">';
             echo '<h4 style="margin-top: 0;">Feld ' . $nr . '</h4>';
-            
-            // Emoji-Feld
-            echo '<p class="form-field">';
-            echo '<label for="_workshop_erwartet_' . $nr . '_emoji">Emoji</label>';
-            echo '<input type="text" class="short" name="_workshop_erwartet_' . $nr . '_emoji" id="_workshop_erwartet_' . $nr . '_emoji" value="' . esc_attr($emoji) . '" placeholder="' . esc_attr($default_felder[$nr]['emoji']) . '" />';
-            echo '</p>';
             
             // Titel-Feld
             woocommerce_wp_text_input([
@@ -586,7 +578,7 @@ class Micinterart_Workshop_WooCommerce {
         
         // "Was dich erwartet" Felder
         for ($i = 1; $i <= 8; $i++) {
-            foreach (['emoji', 'titel', 'text'] as $part) {
+            foreach (['titel', 'text'] as $part) {
                 $field_name = "_workshop_erwartet_{$i}_{$part}";
                 if (isset($_POST[$field_name])) {
                     $product->update_meta_data($field_name, sanitize_text_field(wp_unslash($_POST[$field_name])));

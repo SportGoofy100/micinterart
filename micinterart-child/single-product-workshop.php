@@ -509,13 +509,8 @@ wp_reset_postdata();
 }
 
 .workshop-expectations-item {
-    display: flex;
-    align-items: start;
-    gap: 12px;
-}
-
-.workshop-expectations-item span {
-    font-size: 1.5em;
+    padding-left: 14px;
+    border-left: 2px solid var(--mic-gold, #E2AC12);
 }
 
 .workshop-expectations-item strong {
@@ -523,7 +518,7 @@ wp_reset_postdata();
     color: #2c2c2c;
 }
 
-.workshop-expectations-item span+span {
+.workshop-expectations-item span {
     color: #666;
     font-size: 0.95em;
     display: block;
@@ -622,7 +617,7 @@ wp_reset_postdata();
             <?php if ($kann_anmelden) : ?>
                 <div class="workshop-cta-inline">
                     <a href="#workshop-anmeldung">
-                        ✏️ <?php echo $is_en ? 'Register now' : 'Jetzt anmelden'; ?>
+                        <?php echo $is_en ? 'Register now' : 'Jetzt anmelden'; ?>
                     </a>
                 </div>
             <?php endif; ?>
@@ -633,7 +628,7 @@ wp_reset_postdata();
 
             <?php if ($ist_nach_absprache) : ?>
                 <div class="workshop-nach-absprache-box">
-                    <h3>🗓️ <?php echo esc_html($nach_absprache_text); ?></h3>
+                    <h3><?php echo esc_html($nach_absprache_text); ?></h3>
                     <p><?php echo esc_html($nach_absprache_beschreibung); ?></p>
                 </div>
             <?php else : ?>
@@ -702,17 +697,15 @@ wp_reset_postdata();
                 if ($e_titel === '' && $e_text === '') {
                     continue;
                 }
-                $e_emoji = trim((string) get_post_meta($product_id, "_workshop_erwartet_{$nr}_emoji", true));
-                $erwartet_items[] = ['emoji' => $e_emoji, 'titel' => $e_titel, 'text' => $e_text];
+                $erwartet_items[] = ['titel' => $e_titel, 'text' => $e_text];
             }
             if ($erwartet_items) :
             ?>
             <div class="workshop-expectations">
-                <h3>✨ <?php echo $is_en ? 'What to expect' : 'Was dich erwartet'; ?></h3>
+                <h3><?php echo $is_en ? 'What to expect' : 'Was dich erwartet'; ?></h3>
                 <div class="workshop-expectations-grid">
                     <?php foreach ($erwartet_items as $item) : ?>
                     <div class="workshop-expectations-item">
-                        <?php if ($item['emoji'] !== '') : ?><span><?php echo esc_html($item['emoji']); ?></span><?php endif; ?>
                         <div>
                             <?php if ($item['titel'] !== '') : ?><strong><?php echo esc_html($item['titel']); ?></strong><?php endif; ?>
                             <?php if ($item['text'] !== '') : ?><span><?php echo esc_html($item['text']); ?></span><?php endif; ?>
@@ -724,7 +717,7 @@ wp_reset_postdata();
             <?php endif; ?>
 
             <div class="workshop-anmeldung-box" id="workshop-anmeldung">
-                <h3 class="workshop-anmeldung-title">📅 <?php echo esc_html($anmeldung_title); ?></h3>
+                <h3 class="workshop-anmeldung-title"><?php echo esc_html($anmeldung_title); ?></h3>
                 
                 <?php if ($kann_anmelden) : ?>
                     <div class="workshop-anmeldung-content">
@@ -757,7 +750,7 @@ wp_reset_postdata();
                                         <button type="button" class="workshop-quantity-step" data-step="1" aria-label="<?php echo esc_attr($is_en ? 'Add one place' : 'Einen Platz mehr'); ?>">+</button>
                                     </div>
                                     <button type="submit" name="add-to-cart" value="<?php echo esc_attr($product_id); ?>" class="single_add_to_cart_button button alt workshop-anmeldung-button">
-                                        🛒 <?php echo $is_en ? 'Add to cart' : 'In den Warenkorb'; ?>
+                                        <?php echo $is_en ? 'Add to cart' : 'In den Warenkorb'; ?>
                                     </button>
                                     <?php do_action('woocommerce_after_add_to_cart_button'); ?>
                                 </form>
@@ -769,7 +762,7 @@ wp_reset_postdata();
                             <?php endif; ?>
                             
                             <a href="<?php echo esc_url(wc_get_cart_url()); ?>" class="workshop-anmeldung-button" style="background: linear-gradient(135deg, var(--mic-gold, #E2AC12), var(--mic-gold-deep, #C48F00)); border: none; color: #1a1a1a;">
-                                📋 <?php echo $is_en ? 'View cart' : 'Zum Warenkorb'; ?>
+                                <?php echo $is_en ? 'View cart' : 'Zum Warenkorb'; ?>
                             </a>
                         </div>
                         
@@ -814,7 +807,7 @@ wp_reset_postdata();
                                 <a href="<?php echo esc_url(get_permalink($rw['id'])); ?>"><?php echo esc_html($rw['title']); ?></a>
                             </h4>
                             <?php if ($rw_datum_formatted) : ?>
-                                <div class="related-workshop-card-date">📅 <?php echo esc_html($rw_datum_formatted); ?></div>
+                                <div class="related-workshop-card-date"><?php echo esc_html($rw_datum_formatted); ?></div>
                             <?php endif; ?>
                             <?php if ($rw_preis_formatted) : ?>
                                 <div class="related-workshop-card-preis">
@@ -844,7 +837,7 @@ wp_reset_postdata();
         <?php if ($kann_anmelden) : ?>
         <div class="workshop-cta-floating" id="workshop-cta-floating">
             <a href="#workshop-anmeldung" onclick="event.preventDefault(); document.getElementById('workshop-anmeldung').scrollIntoView({ behavior: 'smooth' });">
-                ✏️ <?php echo $is_en ? 'Book now' : 'Jetzt buchen'; ?>
+                <?php echo $is_en ? 'Book now' : 'Jetzt buchen'; ?>
             </a>
         </div>
         <?php endif; ?>
