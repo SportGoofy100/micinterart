@@ -641,7 +641,7 @@ function micinterart_product_status_column_content($column, $post_id) {
     }
     $product = wc_get_product($post_id);
     $type = $product ? $product->get_type() : '';
-    if (!in_array($type, ['werk', 'workshop', 'workshop_variable'], true)) {
+    if ($type !== 'werk' && $type !== 'workshop') {
         echo '<span aria-hidden="true">–</span>';
         return;
     }
@@ -670,7 +670,7 @@ function micinterart_ajax_set_product_status() {
 
     $product = wc_get_product($post_id);
     $type = $product ? $product->get_type() : '';
-    if (!in_array($type, ['werk', 'workshop', 'workshop_variable'], true) || !isset(micinterart_product_status_options($type)[$status])) {
+    if (($type !== 'werk' && $type !== 'workshop') || !isset(micinterart_product_status_options($type)[$status])) {
         wp_send_json_error('Ungültiger Status.', 400);
     }
 
