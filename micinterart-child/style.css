@@ -24,3 +24,9 @@
     word-break: normal;
     overflow-wrap: anywhere;
 }
+
+
+/* Germanized: Gewährleistungs-Plakat nur auf Produktseiten zeigen */
+body:not(.single-product) .wc-gzd-legal-guarantee-image-preview {
+    display: none;
+}

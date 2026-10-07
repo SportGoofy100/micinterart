@@ -558,9 +558,16 @@ wp_reset_postdata();
 }
 
 .related-workshop-card img {
+    display: block;
     width: 100%;
     height: 180px;
     object-fit: cover;
+    opacity: 1 !important;
+}
+
+.related-workshop-card-noimage {
+    height: 180px;
+    background: #f0f0f0;
 }
 
 .related-workshop-card-content {
@@ -795,12 +802,21 @@ wp_reset_postdata();
                         $rw_preis_formatted = $rw_preis ? ($is_en ? '€ ' . number_format($rw_preis, 2, '.', ',') : number_format($rw_preis, 2, ',', '.') . ' €') : '';
                         $rw_datum = get_post_meta($rw['id'], '_workshop_datum', true);
                         $rw_datum_formatted = $rw_datum ? date_i18n('d.m.Y', strtotime($rw_datum)) : '';
-                        $rw_has_image = has_post_thumbnail($rw['id']);
-                        $rw_image_url = $rw_has_image ? get_the_post_thumbnail_url($rw['id'], 'medium') : 'https://micinterart.de/wp-content/uploads/2026/06/5341273144251062761_121.jpg';
+                        $rw_image_url = get_the_post_thumbnail_url($rw['id'], 'medium');
+                        if (!$rw_image_url && $rw_product) {
+                            $rw_gallery_ids = $rw_product->get_gallery_image_ids();
+                            if ($rw_gallery_ids) {
+                                $rw_image_url = wp_get_attachment_image_url($rw_gallery_ids[0], 'medium');
+                            }
+                        }
                     ?>
                     <div class="related-workshop-card">
                         <a href="<?php echo esc_url(get_permalink($rw['id'])); ?>">
-                            <img src="<?php echo esc_url($rw_image_url); ?>" alt="<?php echo esc_attr($rw['title']); ?>" loading="lazy">
+                            <?php if ($rw_image_url) : ?>
+                                <img src="<?php echo esc_url($rw_image_url); ?>" alt="<?php echo esc_attr($rw['title']); ?>" class="skip-lazy" data-skip-lazy="1" data-no-lazy="1" loading="eager">
+                            <?php else : ?>
+                                <div class="related-workshop-card-noimage"></div>
+                            <?php endif; ?>
                         </a>
                         <div class="related-workshop-card-content">
                             <h4 class="related-workshop-card-title">
