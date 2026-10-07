@@ -591,6 +591,153 @@ function micinterart_admin_product_list_styles() {
         .post-type-product .wp-list-table th.column-rank_math_seo_details,
         .post-type-product .wp-list-table td.column-rank_math_seo_details { width: 170px; min-width: 170px; }
         .post-type-product .wp-list-table td.column-rank_math_seo_details { word-break: normal; overflow-wrap: normal; }
+        .post-type-product .wp-list-table th.column-taxonomy-serie,
+        .post-type-product .wp-list-table td.column-taxonomy-serie { min-width: 70px; word-break: normal; }
+        .post-type-product .wp-list-table th.column-micinterart_status { width: 150px; }
     </style>';
 }
 add_action('admin_head', 'micinterart_admin_product_list_styles');
+
+/**
+ * Status-Spalte in der Produktliste: Werke und Workshops lassen sich direkt dort umstellen.
+ */
+function micinterart_product_status_options($type) {
+    if ($type === 'werk') {
+        return [
+            'verfuegbar'   => 'Verfügbar',
+            'reserviert'   => 'Reserviert',
+            'verkauft'     => 'Verkauft',
+            'privatbesitz' => 'Privatbesitz',
+        ];
+    }
+    return [
+        'geplant'         => 'Geplant',
+        'anmeldung_offen' => 'Anmeldung offen',
+        'fast_ausgebucht' => 'Fast ausgebucht',
+        'ausgebucht'      => 'Ausgebucht',
+        'beendet'         => 'Beendet',
+        'abgesagt'        => 'Abgesagt',
+    ];
+}
+
+function micinterart_product_status_column($columns) {
+    $new = [];
+    foreach ($columns as $key => $label) {
+        $new[$key] = $label;
+        if ($key === 'is_in_stock') {
+            $new['micinterart_status'] = 'Status';
+        }
+    }
+    if (!isset($new['micinterart_status'])) {
+        $new['micinterart_status'] = 'Status';
+    }
+    return $new;
+}
+add_filter('manage_edit-product_columns', 'micinterart_product_status_column', 20);
+
+function micinterart_product_status_column_content($column, $post_id) {
+    if ($column !== 'micinterart_status') {
+        return;
+    }
+    $product = wc_get_product($post_id);
+    $type = $product ? $product->get_type() : '';
+    if (!in_array($type, ['werk', 'workshop', 'workshop_variable'], true)) {
+        echo '<span aria-hidden="true">–</span>';
+        return;
+    }
+    if ($type === 'werk') {
+        // Der Status gilt für alle Sprachfassungen und wird am Original gepflegt
+        $current = micinterart_werk_status($post_id) ?: 'verfuegbar';
+    } else {
+        $current = get_post_meta($post_id, '_workshop_status', true) ?: 'geplant';
+    }
+    echo '<select class="micinterart-status-select" data-id="' . (int) $post_id . '" data-prev="' . esc_attr($current) . '">';
+    foreach (micinterart_product_status_options($type) as $value => $label) {
+        echo '<option value="' . esc_attr($value) . '"' . selected($current, $value, false) . '>' . esc_html($label) . '</option>';
+    }
+    echo '</select><span class="micinterart-status-note" aria-live="polite"></span>';
+}
+add_action('manage_product_posts_custom_column', 'micinterart_product_status_column_content', 10, 2);
+
+function micinterart_ajax_set_product_status() {
+    check_ajax_referer('micinterart_product_status', 'nonce');
+
+    $post_id = isset($_POST['id']) ? absint($_POST['id']) : 0;
+    $status  = isset($_POST['status']) ? sanitize_key(wp_unslash($_POST['status'])) : '';
+    if (!$post_id || !current_user_can('edit_post', $post_id)) {
+        wp_send_json_error('Keine Berechtigung.', 403);
+    }
+
+    $product = wc_get_product($post_id);
+    $type = $product ? $product->get_type() : '';
+    if (!in_array($type, ['werk', 'workshop', 'workshop_variable'], true) || !isset(micinterart_product_status_options($type)[$status])) {
+        wp_send_json_error('Ungültiger Status.', 400);
+    }
+
+    if ($type === 'werk') {
+        // Alle Sprachfassungen gemeinsam; ohne Lagerverwaltung folgt der Lagerstatus dem Werk-Status
+        foreach (micinterart_werk_translation_ids($post_id) as $werk_id) {
+            update_post_meta($werk_id, '_werk_status', $status);
+            if ($status !== 'verkauft') {
+                delete_post_meta($werk_id, '_werk_sold_order');
+            }
+            $werk = wc_get_product($werk_id);
+            if ($werk && !$werk->get_manage_stock()) {
+                $werk->set_stock_status($status === 'verfuegbar' ? 'instock' : 'outofstock');
+                $werk->save();
+            }
+        }
+    } else {
+        update_post_meta($post_id, '_workshop_status', $status);
+    }
+
+    wp_send_json_success();
+}
+add_action('wp_ajax_micinterart_set_product_status', 'micinterart_ajax_set_product_status');
+
+function micinterart_product_status_script() {
+    $screen = get_current_screen();
+    if (!$screen || $screen->id !== 'edit-product') {
+        return;
+    }
+    ?>
+    <script>
+    (function () {
+        var nonce = <?php echo wp_json_encode(wp_create_nonce('micinterart_product_status')); ?>;
+        document.addEventListener('change', function (e) {
+            var select = e.target.closest ? e.target.closest('.micinterart-status-select') : null;
+            if (!select) { return; }
+            var note = select.parentNode.querySelector('.micinterart-status-note');
+            var body = new URLSearchParams({
+                action: 'micinterart_set_product_status',
+                nonce: nonce,
+                id: select.dataset.id,
+                status: select.value
+            });
+            select.disabled = true;
+            note.textContent = ' …';
+            fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: body })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (res.success) {
+                        select.dataset.prev = select.value;
+                        note.textContent = ' ✓';
+                    } else {
+                        select.value = select.dataset.prev;
+                        note.textContent = ' Fehler';
+                    }
+                })
+                .catch(function () {
+                    select.value = select.dataset.prev;
+                    note.textContent = ' Fehler';
+                })
+                .then(function () {
+                    select.disabled = false;
+                    setTimeout(function () { note.textContent = ''; }, 2500);
+                });
+        });
+    })();
+    </script>
+    <?php
+}
+add_action('admin_footer', 'micinterart_product_status_script');

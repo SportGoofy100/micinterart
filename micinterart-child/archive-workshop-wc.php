@@ -655,7 +655,7 @@ $workshop_category_type = static function($product_id) {
     
     // Zuerst prüfen ob es ein Workshop-Produkt ist
     $product = wc_get_product($product_id);
-    if ($product && $product->get_type() === 'workshop') {
+    if ($product && micinterart_is_workshop_type($product)) {
         if (!$categories || is_wp_error($categories)) {
             return 'erwachsene';
         }
@@ -674,7 +674,7 @@ $workshop_category_type = static function($product_id) {
         }
     }
 
-    if ($product && $product->get_type() === 'workshop') {
+    if ($product && micinterart_is_workshop_type($product)) {
         return 'erwachsene';
 
     }
@@ -704,7 +704,7 @@ foreach ($workshop_cat_terms as $cat_slug) {
 $workshop_product_tax_query[] = [
     'taxonomy' => 'product_type',
     'field' => 'slug',
-    'terms' => 'workshop',
+    'terms' => ['workshop', 'workshop_variable'],
 ];
 
 if (!empty($workshop_product_tax_query)) {
@@ -960,7 +960,7 @@ function display_workshop_card($workshop, $is_archiv = false) {
     // Footer mit Preis und Button
     echo '<div class="workshop-footer">';
     if ($preis > 0) {
-        echo '<span class="workshop-preis">' . wc_price($preis) . '</span>';
+        echo '<span class="workshop-preis">' . (micinterart_workshop_type_of($product) === 'workshop_variable' ? esc_html(micinterart_t('ab ', 'from ')) : '') . wc_price($preis) . '</span>';
     }
     echo '<a href="' . get_permalink($post->ID) . '" class="workshop-button">Mehr Infos</a>';
     echo '</div>';
@@ -1102,7 +1102,7 @@ if ($next_workshop) :
     
     // Preis
     if ($preis > 0) {
-        echo '<div class="hero-preis">' . wc_price($preis) . '</div>';
+        echo '<div class="hero-preis">' . (micinterart_workshop_type_of($product) === 'workshop_variable' ? esc_html(micinterart_t('ab ', 'from ')) : '') . wc_price($preis) . '</div>';
     }
     
     // Button

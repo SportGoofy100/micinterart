@@ -172,7 +172,7 @@ $related_workshops_query = new WP_Query([
     'tax_query' => [[
         'taxonomy' => 'product_type',
         'field' => 'slug',
-        'terms' => 'workshop',
+        'terms' => ['workshop', 'workshop_variable'],
     ]],
     'meta_query' => [
         'relation' => 'OR',
@@ -734,6 +734,10 @@ wp_reset_postdata();
                         
                         <div class="workshop-anmeldung-buttons">
                             <?php if ($product->is_purchasable() && $product->is_in_stock()) : ?>
+                                <?php if ($product->get_type() === 'workshop_variable') : ?>
+                                    <?php // Gruppengröße wählen (Preis je Teilnehmerzahl) ?>
+                                    <?php $GLOBALS['product'] = $product; woocommerce_variable_add_to_cart(); ?>
+                                <?php else : ?>
                                 <?php do_action('woocommerce_before_add_to_cart_form'); ?>
                                 <form class="cart" action="<?php echo esc_url(apply_filters('woocommerce_add_to_cart_form_action', $product->get_permalink())); ?>" method="post" enctype="multipart/form-data">
                                     <?php do_action('woocommerce_before_add_to_cart_button'); ?>
@@ -762,6 +766,7 @@ wp_reset_postdata();
                                     <?php do_action('woocommerce_after_add_to_cart_button'); ?>
                                 </form>
                                 <?php do_action('woocommerce_after_add_to_cart_form'); ?>
+                            <?php endif; ?>
                             <?php else : ?>
                                 <button type="button" class="workshop-anmeldung-button" style="opacity: 0.7; cursor: not-allowed;">
                                 <?php echo $is_en ? 'Not available' : 'Nicht verfügbar'; ?>
