@@ -123,6 +123,12 @@ function micinterart_load_workshop_wc_includes() {
         require_once $seo_file;
     }
 
+    // Bewertungs-Mail 2 Tage nach dem Workshop
+    $review_mail_file = get_stylesheet_directory() . '/includes/review-mail.php';
+    if (file_exists($review_mail_file)) {
+        require_once $review_mail_file;
+    }
+
     // Workshop Checkout Anpassungen (Teilnehmerfelder, Rabatte)
     $workshop_checkout_file = get_stylesheet_directory() . '/includes/workshop-checkout.php';
     if (file_exists($workshop_checkout_file)) {
