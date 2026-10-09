@@ -61,7 +61,6 @@ $preis_info = get_post_meta($product_id, '_workshop_preis_info', true);
 $sprache = get_post_meta($product_id, '_workshop_sprache', true) ?: 'deutsch';
 $sprache_text = ($sprache === 'russisch') ? ($is_en ? 'Russian' : 'Russisch') : ($is_en ? 'German' : 'Deutsch');
 $max_teilnehmer = get_post_meta($product_id, '_workshop_max_teilnehmer', true);
-$is_paar = get_post_meta($product_id, '_workshop_is_paar_preis', true);
 $status = get_post_meta($product_id, '_workshop_status', true) ?: 'geplant';
 $current_bookings = get_post_meta($product_id, '_workshop_current_bookings', true);
 $flyer_id = get_post_meta($product_id, '_workshop_flyer', true);
@@ -114,8 +113,6 @@ if (!empty($preis_info)) {
     $suffix = $preis_info;
 } elseif ($is_familienworkshop) {
     $suffix = $is_en ? 'Duo price (1 adult, 1 child)' : 'Duo-Preis (1 Erwachsener, 1 Kind)';
-} elseif ($is_paar === 'yes') {
-    $suffix = $is_en ? 'per couple' : 'pro Paar';
 } elseif ($is_kinderworkshop) {
     $suffix = $is_en ? 'per child' : 'pro Kind';
 } else {

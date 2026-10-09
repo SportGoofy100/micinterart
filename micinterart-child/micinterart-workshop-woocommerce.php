@@ -199,7 +199,6 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_preis_kind_extra',
             '_workshop_sprache',
             '_workshop_max_teilnehmer',
-            '_workshop_is_paar_preis',
             '_workshop_current_bookings',
             '_workshop_status',
         ];
@@ -330,7 +329,6 @@ class Micinterart_Workshop_WooCommerce {
         $preis_info = $product_id ? get_post_meta($product_id, '_workshop_preis_info', true) : '';
         $sprache = $product_id ? get_post_meta($product_id, '_workshop_sprache', true) : '';
         $max_teilnehmer = $product_id ? get_post_meta($product_id, '_workshop_max_teilnehmer', true) : '';
-        $is_paar = $product_id ? get_post_meta($product_id, '_workshop_is_paar_preis', true) : '';
         $status = $product_id ? get_post_meta($product_id, '_workshop_status', true) : 'geplant';
         $current_bookings = $product_id ? get_post_meta($product_id, '_workshop_current_bookings', true) : '';
         
@@ -489,13 +487,6 @@ class Micinterart_Workshop_WooCommerce {
         ]);
         echo '</div>';
         
-        woocommerce_wp_checkbox([
-            'id' => '_workshop_is_paar_preis',
-            'label' => __('Paarpreis', 'micinterart'),
-            'description' => __('Aktivieren, wenn der Preis pro Paar gilt', 'micinterart'),
-            'value' => $is_paar ? 'yes' : 'no',
-        ]);
-        
         woocommerce_wp_select([
             'id' => '_workshop_status',
             'label' => __('Status', 'micinterart'),
@@ -619,13 +610,6 @@ class Micinterart_Workshop_WooCommerce {
                 }
                 $product->update_meta_data($field, $value);
             }
-        }
-        
-        // Checkbox für Paarpreis
-        if (isset($_POST['_workshop_is_paar_preis'])) {
-            $product->update_meta_data('_workshop_is_paar_preis', 'yes');
-        } else {
-            $product->delete_meta_data('_workshop_is_paar_preis');
         }
         
         // "Was dich erwartet" Felder
