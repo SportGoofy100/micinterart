@@ -195,6 +195,8 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_alter_bis',
             '_workshop_preis',
             '_workshop_preis_info',
+            '_workshop_preis_erwachsener_extra',
+            '_workshop_preis_kind_extra',
             '_workshop_sprache',
             '_workshop_max_teilnehmer',
             '_workshop_is_paar_preis',
@@ -408,6 +410,54 @@ class Micinterart_Workshop_WooCommerce {
             'placeholder' => 'pro Kind / pro Paar',
             'value' => $preis_info,
         ]);
+        // Nur für die Kategorie "Familienworkshop": Aufpreise zum Duo-Preis
+        woocommerce_wp_text_input([
+            'id' => '_workshop_preis_erwachsener_extra',
+            'label' => __('Aufpreis je weiterer Erwachsener', 'micinterart'),
+            'placeholder' => '25,00',
+            'value' => $product_id ? get_post_meta($product_id, '_workshop_preis_erwachsener_extra', true) : '',
+            'wrapper_class' => 'mic-familie-field',
+            'desc_tip' => true,
+            'description' => __('Gilt ab dem 2. Erwachsenen. Der Preis oben ist der Duo-Preis für 1 Erwachsenen und 1 Kind.', 'micinterart'),
+        ]);
+        woocommerce_wp_text_input([
+            'id' => '_workshop_preis_kind_extra',
+            'label' => __('Aufpreis je weiteres Kind', 'micinterart'),
+            'placeholder' => '15,00',
+            'value' => $product_id ? get_post_meta($product_id, '_workshop_preis_kind_extra', true) : '',
+            'wrapper_class' => 'mic-familie-field',
+            'desc_tip' => true,
+            'description' => __('Gilt ab dem 2. Kind.', 'micinterart'),
+        ]);
+        $familie_term_ids = [];
+        $all_cats = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false, 'lang' => '']);
+        if (!is_wp_error($all_cats)) {
+            foreach ($all_cats as $cat) {
+                if (strpos($cat->slug, 'familienworkshop') === 0) {
+                    $familie_term_ids[] = (int) $cat->term_id;
+                }
+            }
+        }
+        ?>
+        <script>
+        jQuery(function($) {
+            var ids = <?php echo wp_json_encode($familie_term_ids); ?>;
+            function toggleFamilieFields() {
+                var active = false;
+                $('#product_catchecklist input:checked').each(function() {
+                    var id = parseInt($(this).val(), 10);
+                    var label = $.trim($(this).parent().text()).toLowerCase();
+                    if (ids.indexOf(id) !== -1 || label.indexOf('familienworkshop') === 0) {
+                        active = true;
+                    }
+                });
+                $('.mic-familie-field').toggle(active);
+            }
+            $(document).on('change', '#product_catchecklist input', toggleFamilieFields);
+            toggleFamilieFields();
+        });
+        </script>
+        <?php
         woocommerce_wp_select([
             'id' => '_workshop_sprache',
             'label' => __('Kurssprache', 'micinterart'),
@@ -551,12 +601,14 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_alter_bis',
             '_workshop_preis',
             '_workshop_preis_info',
+            '_workshop_preis_erwachsener_extra',
+            '_workshop_preis_kind_extra',
             '_workshop_sprache',
             '_workshop_max_teilnehmer',
             '_workshop_current_bookings',
             '_workshop_status',
         ];
-        
+
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
                 $posted_value = wp_unslash($_POST[$field]);

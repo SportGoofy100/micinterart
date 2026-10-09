@@ -29,7 +29,7 @@ $is_workshop = function_exists('micinterart_wc_is_workshop_product')
 $terms = get_the_terms(get_the_ID(), 'product_cat');
 if ($terms && !is_wp_error($terms)) {
     foreach ($terms as $term) {
-        if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
+        if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops', 'familienworkshop'], true)) {
             $is_workshop = true;
             break;
         }
@@ -81,6 +81,13 @@ if ($terms && !is_wp_error($terms)) {
     }
 }
 
+// Familienworkshop: Duo-Preis plus Aufpreise, Anmeldung nach Erwachsenen und Kindern
+$is_familienworkshop = function_exists('micinterart_is_familienworkshop') && micinterart_is_familienworkshop($product_id);
+$familie_extra = $is_familienworkshop ? micinterart_familie_extra_prices($product_id) : ['adult' => 0, 'child' => 0];
+$familie_format = function ($amount) use ($is_en) {
+    return $is_en ? '€ ' . number_format($amount, 2, '.', ',') : number_format($amount, 2, ',', '.') . ' €';
+};
+
 // Dynamische Texte je nach Typ
 $price_label = $is_kinderworkshop ? ($is_en ? 'Price per child' : 'Preis pro Kind') : ($is_en ? 'Price per person' : 'Preis pro Person');
 $termin_label = $is_en ? 'Workshop Date' : 'Workshop-Termin';
@@ -105,6 +112,8 @@ $preis_formatted = $preis ? ($is_en ? '€ ' . number_format($preis, 2, '.', ','
 $suffix = '';
 if (!empty($preis_info)) {
     $suffix = $preis_info;
+} elseif ($is_familienworkshop) {
+    $suffix = $is_en ? 'Duo price (1 adult, 1 child)' : 'Duo-Preis (1 Erwachsener, 1 Kind)';
 } elseif ($is_paar === 'yes') {
     $suffix = $is_en ? 'per couple' : 'pro Paar';
 } elseif ($is_kinderworkshop) {
@@ -308,6 +317,46 @@ wp_reset_postdata();
     gap: 15px;
     max-width: 400px;
     margin: 0 auto;
+}
+
+.workshop-familie-preise {
+    margin-bottom: 15px;
+}
+
+.workshop-familie-preise p {
+    margin: 0 0 4px;
+}
+
+.workshop-familie-steppers {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 30px;
+}
+
+.workshop-familie-stepper-label {
+    display: block;
+    text-align: center;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.workshop-familie-hinweis {
+    background: #fff4e5;
+    border-left: 3px solid var(--mic-gold, #E2AC12);
+    padding: 10px 14px;
+    margin: 0 0 15px;
+    text-align: left;
+}
+
+.workshop-familie-total {
+    margin: 0 0 15px;
+    font-size: 1.1em;
+}
+
+.workshop-anmeldung-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .workshop-quantity-control {
@@ -735,8 +784,42 @@ wp_reset_postdata();
                         <div class="workshop-anmeldung-buttons">
                             <?php if ($product->is_purchasable() && $product->is_in_stock()) : ?>
                                 <?php do_action('woocommerce_before_add_to_cart_form'); ?>
-                                <form class="cart" action="<?php echo esc_url(apply_filters('woocommerce_add_to_cart_form_action', $product->get_permalink())); ?>" method="post" enctype="multipart/form-data">
+                                <form class="cart<?php echo $is_familienworkshop ? ' workshop-familie-form' : ''; ?>"<?php if ($is_familienworkshop) : ?> data-base="<?php echo esc_attr((float) $preis); ?>" data-adult-extra="<?php echo esc_attr($familie_extra['adult']); ?>" data-child-extra="<?php echo esc_attr($familie_extra['child']); ?>" data-max="<?php echo esc_attr($stock_quantity > 0 ? (int) $stock_quantity : 10); ?>" data-locale="<?php echo $is_en ? 'en-GB' : 'de-DE'; ?>" data-msg-adult="<?php echo esc_attr($is_en ? 'Family workshops require at least one adult to be registered.' : 'Bei Familienworkshops muss mindestens ein Erwachsener angemeldet werden.'); ?>" data-msg-child="<?php echo esc_attr($is_en ? 'Please register at least one child.' : 'Bitte melde mindestens ein Kind an.'); ?>" data-msg-max="<?php echo esc_attr($is_en ? 'Not enough places left.' : 'So viele Plätze sind leider nicht mehr frei.'); ?>"<?php endif; ?> action="<?php echo esc_url(apply_filters('woocommerce_add_to_cart_form_action', $product->get_permalink())); ?>" method="post" enctype="multipart/form-data">
                                     <?php do_action('woocommerce_before_add_to_cart_button'); ?>
+                                    <?php if ($is_familienworkshop) : ?>
+                                    <?php
+                                    $familie_max = $stock_quantity > 0 ? (int) $stock_quantity : 10;
+                                    $familie_steppers = [
+                                        ['name' => 'workshop_adults', 'label' => $is_en ? 'Adults' : 'Erwachsene', 'less' => $is_en ? 'One adult less' : 'Einen Erwachsenen weniger', 'more' => $is_en ? 'One adult more' : 'Einen Erwachsenen mehr'],
+                                        ['name' => 'workshop_children', 'label' => $is_en ? 'Children' : 'Kinder', 'less' => $is_en ? 'One child less' : 'Ein Kind weniger', 'more' => $is_en ? 'One child more' : 'Ein Kind mehr'],
+                                    ];
+                                    ?>
+                                    <div class="workshop-familie-preise">
+                                        <p><strong><?php echo esc_html($preis_formatted); ?></strong> <?php echo esc_html($suffix); ?></p>
+                                        <?php if ($familie_extra['adult'] > 0) : ?>
+                                            <p><?php echo esc_html(($is_en ? 'Each additional adult: +' : 'Jeder weitere Erwachsene: +') . $familie_format($familie_extra['adult'])); ?></p>
+                                        <?php endif; ?>
+                                        <?php if ($familie_extra['child'] > 0) : ?>
+                                            <p><?php echo esc_html(($is_en ? 'Each additional child: +' : 'Jedes weitere Kind: +') . $familie_format($familie_extra['child'])); ?></p>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="workshop-familie-steppers">
+                                        <?php foreach ($familie_steppers as $stepper) : ?>
+                                            <div class="workshop-familie-stepper">
+                                                <span class="workshop-familie-stepper-label"><?php echo esc_html($stepper['label']); ?></span>
+                                                <div class="workshop-quantity-control">
+                                                    <button type="button" class="workshop-quantity-step" data-step="-1" aria-label="<?php echo esc_attr($stepper['less']); ?>">−</button>
+                                                    <input class="input-text qty text workshop-quantity-input" type="number" name="<?php echo esc_attr($stepper['name']); ?>" value="1" min="0" max="<?php echo esc_attr($familie_max); ?>" step="1" inputmode="numeric" aria-label="<?php echo esc_attr($stepper['label']); ?>">
+                                                    <button type="button" class="workshop-quantity-step" data-step="1" aria-label="<?php echo esc_attr($stepper['more']); ?>">+</button>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <input type="hidden" name="quantity" value="2" class="workshop-familie-quantity-input">
+                                    <p class="workshop-familie-hinweis" hidden></p>
+                                    <p class="workshop-familie-total"><?php echo esc_html($is_en ? 'Total: ' : 'Gesamt: '); ?><strong></strong></p>
+                                    <?php else : ?>
+
                                     <div class="workshop-quantity-control">
                                         <button type="button" class="workshop-quantity-step" data-step="-1" aria-label="<?php echo esc_attr($is_en ? 'Remove one place' : 'Einen Platz weniger'); ?>" disabled>−</button>
                                         <label class="screen-reader-text" for="workshop-quantity-<?php echo esc_attr($product_id); ?>">
@@ -756,6 +839,7 @@ wp_reset_postdata();
                                         >
                                         <button type="button" class="workshop-quantity-step" data-step="1" aria-label="<?php echo esc_attr($is_en ? 'Add one place' : 'Einen Platz mehr'); ?>">+</button>
                                     </div>
+                                    <?php endif; ?>
                                     <button type="submit" name="add-to-cart" value="<?php echo esc_attr($product_id); ?>" class="single_add_to_cart_button button alt workshop-anmeldung-button">
                                         <?php echo $is_en ? 'Add to cart' : 'In den Warenkorb'; ?>
                                     </button>
@@ -889,15 +973,20 @@ if (window.location.hash === '#workshop-anmeldung') {
     }, 300);
 }
 
+function micQty(value, fallback) {
+    var number = parseInt(value, 10);
+    return isNaN(number) ? fallback : number;
+}
+
 function updateWorkshopQuantityButtons(input) {
     var controls = input.closest('.workshop-quantity-control');
     if (!controls) {
         return;
     }
 
-    var minimum = parseInt(input.min, 10) || 1;
-    var maximum = parseInt(input.max, 10) || minimum;
-    var quantity = parseInt(input.value, 10) || minimum;
+    var minimum = micQty(input.min, 1);
+    var maximum = micQty(input.max, minimum);
+    var quantity = micQty(input.value, minimum);
     controls.querySelector('[data-step="-1"]').disabled = quantity <= minimum;
     controls.querySelector('[data-step="1"]').disabled = quantity >= maximum;
 }
@@ -911,9 +1000,9 @@ document.addEventListener('click', function(event) {
     }
 
     var input = button.closest('.workshop-quantity-control').querySelector('.workshop-quantity-input');
-    var minimum = parseInt(input.min, 10) || 1;
-    var maximum = parseInt(input.max, 10) || minimum;
-    var quantity = parseInt(input.value, 10) || minimum;
+    var minimum = micQty(input.min, 1);
+    var maximum = micQty(input.max, minimum);
+    var quantity = micQty(input.value, minimum);
     var step = parseInt(button.dataset.step, 10) || 0;
 
     input.value = Math.min(maximum, Math.max(minimum, quantity + step));
@@ -928,11 +1017,51 @@ document.addEventListener('change', function(event) {
     }
 
     var input = event.target;
-    var minimum = parseInt(input.min, 10) || 1;
-    var maximum = parseInt(input.max, 10) || minimum;
-    var quantity = parseInt(input.value, 10) || minimum;
+    var minimum = micQty(input.min, 1);
+    var maximum = micQty(input.max, minimum);
+    var quantity = micQty(input.value, minimum);
 
     input.value = Math.min(maximum, Math.max(minimum, quantity));
     updateWorkshopQuantityButtons(input);
 });
+// Familienworkshop: Personenzahl, Gesamtpreis und Hinweis
+document.querySelectorAll('.workshop-familie-form').forEach(function(form) {
+    var adultsInput = form.querySelector('[name="workshop_adults"]');
+    var childrenInput = form.querySelector('[name="workshop_children"]');
+    var quantityInput = form.querySelector('.workshop-familie-quantity-input');
+    var notice = form.querySelector('.workshop-familie-hinweis');
+    var total = form.querySelector('.workshop-familie-total strong');
+    var submit = form.querySelector('button[type="submit"]');
+
+    function updateFamilie() {
+        var adults = Math.max(0, parseInt(adultsInput.value, 10) || 0);
+        var children = Math.max(0, parseInt(childrenInput.value, 10) || 0);
+        var maximum = parseInt(form.dataset.max, 10) || 10;
+        var message = '';
+
+        if (adults < 1) {
+            message = form.dataset.msgAdult;
+        } else if (children < 1) {
+            message = form.dataset.msgChild;
+        } else if (adults + children > maximum) {
+            message = form.dataset.msgMax;
+        }
+
+        quantityInput.value = Math.max(1, adults + children);
+        var sum = parseFloat(form.dataset.base)
+            + Math.max(0, adults - 1) * parseFloat(form.dataset.adultExtra)
+            + Math.max(0, children - 1) * parseFloat(form.dataset.childExtra);
+        total.textContent = sum.toLocaleString(form.dataset.locale, { style: 'currency', currency: 'EUR' });
+
+        notice.textContent = message;
+        notice.hidden = message === '';
+        submit.disabled = message !== '';
+    }
+
+    form.addEventListener('input', updateFamilie);
+    form.addEventListener('change', updateFamilie);
+    form.addEventListener('click', function() { setTimeout(updateFamilie, 0); });
+    updateFamilie();
+});
+
 </script>

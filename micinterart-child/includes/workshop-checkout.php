@@ -1,6 +1,6 @@
 <?php
 /**
- * Workshop Checkout Anpassungen: Teilnehmerfelder und Rabatte
+ * Workshop Checkout Anpassungen: Teilnehmerfelder und Familienworkshops
  * 
  * @package Micinterart
  */
@@ -12,6 +12,44 @@ if (!defined('ABSPATH')) {
 // Nur laden wenn WooCommerce aktiv ist
 if (!class_exists('WooCommerce')) {
     exit;
+}
+
+/**
+ * Prüft, ob ein Produkt zur Kategorie "Familienworkshop" gehört
+ * (auch übersetzte Kategorien, deren Slug mit "familienworkshop" beginnt).
+ */
+function micinterart_is_familienworkshop($product_id) {
+    $terms = get_the_terms((int) $product_id, 'product_cat');
+    if (!$terms || is_wp_error($terms)) {
+        return false;
+    }
+    foreach ($terms as $term) {
+        if (strpos($term->slug, 'familienworkshop') === 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Aufpreise für jeden weiteren Erwachsenen bzw. jedes weitere Kind
+ *
+ * @return array{adult: float, child: float}
+ */
+function micinterart_familie_extra_prices($product_id) {
+    $adult = (float) wc_format_decimal((string) get_post_meta($product_id, '_workshop_preis_erwachsener_extra', true));
+    $child = (float) wc_format_decimal((string) get_post_meta($product_id, '_workshop_preis_kind_extra', true));
+    return ['adult' => $adult, 'child' => $child];
+}
+
+/**
+ * Gesamtpreis: Duo-Preis (1 Erwachsener + 1 Kind) plus Aufpreise ab dem 2. Erwachsenen / 2. Kind
+ */
+function micinterart_familie_total($product, $adults, $children) {
+    $extra = micinterart_familie_extra_prices($product->get_id());
+    return (float) $product->get_price()
+        + max(0, $adults - 1) * $extra['adult']
+        + max(0, $children - 1) * $extra['child'];
 }
 
 class Micinterart_Workshop_Checkout {
@@ -35,12 +73,6 @@ class Micinterart_Workshop_Checkout {
         // Teilnehmerdaten an der jeweiligen Bestellposition speichern
         add_action('woocommerce_checkout_create_order_line_item', [$this, 'save_participant_line_item'], 10, 4);
         
-        // Geschwisterrabatt (10% Rabatt für jedes weitere Kind ab dem 2.)
-        add_action('woocommerce_cart_calculate_fees', [$this, 'add_geschwister_discount']);
-        
-        // Paarpreis-Rabatt (wenn Paar-Ticket im Warenkorb)
-        add_action('woocommerce_cart_calculate_fees', [$this, 'add_paarpreis_discount']);
-        
         // CSS für Checkout-Felder
         add_action('wp_enqueue_scripts', [$this, 'enqueue_checkout_styles']);
 
@@ -51,6 +83,17 @@ class Micinterart_Workshop_Checkout {
         add_action('woocommerce_update_product', [$this, 'flush_workshop_ids_cache']);
         add_action('woocommerce_new_product', [$this, 'flush_workshop_ids_cache']);
         add_action('woocommerce_delete_product', [$this, 'flush_workshop_ids_cache']);
+
+        // Familienworkshops: Anmeldung nach Erwachsenen und Kindern, Duo-Preis plus Aufpreise
+        add_filter('woocommerce_add_to_cart_validation', [$this, 'validate_familie_add_to_cart'], 10, 3);
+        add_filter('woocommerce_add_cart_item_data', [$this, 'add_familie_cart_item_data'], 10, 2);
+        add_filter('woocommerce_add_to_cart_quantity', [$this, 'set_familie_quantity'], 10, 2);
+        add_action('woocommerce_before_calculate_totals', [$this, 'apply_familie_price'], 20);
+        add_filter('woocommerce_get_item_data', [$this, 'show_familie_item_data'], 10, 2);
+        add_filter('woocommerce_cart_item_price', [$this, 'show_familie_cart_price'], 10, 3);
+        add_filter('woocommerce_cart_item_quantity', [$this, 'lock_familie_cart_quantity'], 10, 3);
+        add_filter('woocommerce_store_api_product_quantity_editable', [$this, 'lock_familie_blocks_quantity'], 10, 3);
+        add_action('woocommerce_checkout_create_order_line_item', [$this, 'save_familie_line_item'], 10, 3);
     }
 
     // ------------------------------------------------------------------
@@ -186,7 +229,7 @@ class Micinterart_Workshop_Checkout {
                 [
                     'taxonomy' => 'product_cat',
                     'field'    => 'slug',
-                    'terms'    => ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'],
+                    'terms'    => ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops', 'familienworkshop'],
                 ],
             ],
         ]);
@@ -215,7 +258,11 @@ class Micinterart_Workshop_Checkout {
 
             echo '<div class="workshop-participant-fields">';
             echo '<h3>' . esc_html(sprintf(__('Teilnehmer für „%s“', 'micinterart'), $product->get_name())) . '</h3>';
-            echo '<p>' . esc_html(__('Du bist als Besteller automatisch als erste Person berücksichtigt. Bitte gib die Namen der weiteren Teilnehmer jeweils in einer eigenen Zeile an.', 'micinterart')) . '</p>';
+            echo '<p>' . esc_html(__('Du bist als Besteller automatisch als erste Person berücksichtigt. Bitte gib die Namen der weiteren Teilnehmer jeweils in einer eigenen Zeile an.', 'micinterart'));
+            if (isset($cart_item['micinterart_adults'])) {
+                echo ' ' . esc_html(__('Das gilt für alle weiteren Erwachsenen und Kinder.', 'micinterart'));
+            }
+            echo '</p>';
             echo '<p class="form-row form-row-wide workshop-teilnehmer-names">';
             echo '<label for="' . esc_attr($field_id) . '">' . esc_html(sprintf(_n('Name des weiteren Teilnehmers', 'Namen der %d weiteren Teilnehmer', $additional_count, 'micinterart'), $additional_count)) . ' <span class="required">*</span></label>';
             echo '<textarea id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" rows="' . esc_attr(max(2, $additional_count)) . '" required>' . esc_textarea($value) . '</textarea>';
@@ -323,7 +370,7 @@ class Micinterart_Workshop_Checkout {
         }
         
         foreach ($terms as $term) {
-            if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops'], true)) {
+            if (in_array($term->slug, ['workshops', 'atelierkurse', 'kinderworkshops', 'kinderworkshop', 'erwachsenenworkshop', 'erwachsenenworkshops', 'familienworkshop'], true)) {
                 return true;
             }
         }
@@ -331,104 +378,135 @@ class Micinterart_Workshop_Checkout {
         return false;
     }
     
+    // ------------------------------------------------------------------
+    // Familienworkshops
+    // Die Menge im Warenkorb bleibt die Personenzahl (Erwachsene + Kinder),
+    // damit Lagerbestand und Namensabfrage wie bisher funktionieren.
+    // Der Preis der Position wird aus Duo-Preis und Aufpreisen berechnet.
+    // ------------------------------------------------------------------
+
     /**
-     * Fügt Geschwisterrabatt hinzu (10% für jedes weitere Kind ab dem 2.)
+     * Gebuchte Anzahl Erwachsene/Kinder aus dem Formular
      */
-    public function add_geschwister_discount() {
-        if (!function_exists('WC')) {
+    private function get_posted_familie_counts() {
+        return [
+            'adults'   => isset($_REQUEST['workshop_adults']) ? absint(wp_unslash($_REQUEST['workshop_adults'])) : 0,
+            'children' => isset($_REQUEST['workshop_children']) ? absint(wp_unslash($_REQUEST['workshop_children'])) : 0,
+        ];
+    }
+
+    public function validate_familie_add_to_cart($passed, $product_id, $quantity) {
+        if (!$passed || !micinterart_is_familienworkshop($product_id)) {
+            return $passed;
+        }
+
+        $counts = $this->get_posted_familie_counts();
+        if ($counts['adults'] < 1) {
+            wc_add_notice(__('Bei Familienworkshops muss mindestens ein Erwachsener angemeldet werden.', 'micinterart'), 'error');
+            return false;
+        }
+        if ($counts['children'] < 1) {
+            wc_add_notice(__('Bei Familienworkshops muss mindestens ein Kind angemeldet werden.', 'micinterart'), 'error');
+            return false;
+        }
+
+        $product = wc_get_product($product_id);
+        $persons = $counts['adults'] + $counts['children'];
+        if ($product && $product->managing_stock() && !$product->backorders_allowed() && $persons > (int) $product->get_stock_quantity()) {
+            wc_add_notice(__('So viele Plätze sind leider nicht mehr frei.', 'micinterart'), 'error');
+            return false;
+        }
+
+        return true;
+    }
+
+    public function add_familie_cart_item_data($cart_item_data, $product_id) {
+        if (micinterart_is_familienworkshop($product_id)) {
+            $counts = $this->get_posted_familie_counts();
+            $cart_item_data['micinterart_adults']   = $counts['adults'];
+            $cart_item_data['micinterart_children'] = $counts['children'];
+            // Jede Anmeldung bleibt eine eigene Position, sonst würde WooCommerce
+            // zwei gleiche Anmeldungen zu einer Position mit doppelter Menge, aber einfachem Preis zusammenfassen
+            $cart_item_data['micinterart_line'] = wp_generate_uuid4();
+        }
+        return $cart_item_data;
+    }
+
+    public function set_familie_quantity($quantity, $product_id) {
+        if (micinterart_is_familienworkshop($product_id)) {
+            $counts = $this->get_posted_familie_counts();
+            return max(1, $counts['adults'] + $counts['children']);
+        }
+        return $quantity;
+    }
+
+    public function apply_familie_price($cart) {
+        if (is_admin() && !defined('DOING_AJAX')) {
             return;
         }
-        
-        $cart = WC()->cart;
-        if (!$cart || $cart->is_empty()) {
-            return;
-        }
-        
-        // Einzelpreise aller Kinder (ein Eintrag pro Teilnehmer, also pro Menge)
-        $kinder_preise = [];
 
         foreach ($cart->get_cart() as $cart_item) {
-            $product = $cart_item['data'] ?? null;
-            if (!$product || !$this->is_workshop_product($product)) {
+            if (!isset($cart_item['micinterart_adults'])) {
                 continue;
             }
-
-            // Prüfen ob Kinderworkshop
-            $is_kinderworkshop = false;
-            $terms = get_the_terms($cart_item['product_id'], 'product_cat');
-            if ($terms && !is_wp_error($terms)) {
-                foreach ($terms as $term) {
-                    if (in_array($term->slug, ['kinderworkshop', 'kinderworkshops'], true)) {
-                        $is_kinderworkshop = true;
-                        break;
-                    }
-                }
+            $quantity = max(1, (int) $cart_item['quantity']);
+            $total = $this->get_familie_line_total($cart_item);
+            if ($total !== null) {
+                $cart_item['data']->set_price(round($total / $quantity, 6));
             }
-            if (!$is_kinderworkshop) {
-                continue;
-            }
-
-            // Tatsächlicher Preis im Warenkorb (berücksichtigt Angebotspreise)
-            $preis = (float) $product->get_price();
-            for ($i = 0; $i < (int) $cart_item['quantity']; $i++) {
-                $kinder_preise[] = $preis;
-            }
-        }
-
-        // Geschwisterrabatt erst ab dem 2. Kind, unabhängig davon,
-        // ob die Kinder in einer Zeile (Menge) oder mehreren Zeilen liegen
-        if (count($kinder_preise) < 2) {
-            return;
-        }
-
-        // Das teuerste Kind zahlt den vollen Preis, 10% Rabatt auf alle weiteren
-        rsort($kinder_preise);
-        array_shift($kinder_preise);
-
-        $rabatt_prozent = 10;
-        $rabatt_betrag = array_sum($kinder_preise) * $rabatt_prozent / 100;
-
-        if ($rabatt_betrag > 0) {
-            $cart->add_fee(__('Geschwisterrabatt', 'micinterart'), -$rabatt_betrag, false);
         }
     }
-    
+
     /**
-     * Fügt Paarpreis-Rabatt hinzu (wenn Paar-Ticket im Warenkorb)
+     * Gesamtpreis einer Familien-Position: Duo-Preis + Aufpreise ab dem 2. Erwachsenen / 2. Kind
      */
-    public function add_paarpreis_discount() {
-        if (!function_exists('WC')) {
-            return;
+    private function get_familie_line_total($cart_item) {
+        $base = wc_get_product($cart_item['product_id']);
+        if (!$base) {
+            return null;
         }
-        
-        $cart = WC()->cart;
-        if (!$cart || $cart->is_empty()) {
-            return;
-        }
-        
-        // Rabatt von 10% für jedes Paar ab dem 2. (nur Workshop-Produkte mit Paarpreis).
-        // Eine gemeinsame Gebühr, damit sie bei mehreren Zeilen nur einmal auftaucht.
-        $rabatt_betrag = 0;
-        $rabatt_prozent = 10;
+        return micinterart_familie_total($base, (int) $cart_item['micinterart_adults'], (int) $cart_item['micinterart_children']);
+    }
 
-        foreach ($cart->get_cart() as $cart_item) {
-            $product = $cart_item['data'] ?? null;
-            if (!$product || !$this->is_workshop_product($product)) {
-                continue;
-            }
-            if ($product->get_meta('_workshop_is_paar_preis', true) !== 'yes') {
-                continue;
-            }
-            if ((int) $cart_item['quantity'] > 1) {
-                $rabatt_betrag += (float) $product->get_price() * $rabatt_prozent / 100 * ((int) $cart_item['quantity'] - 1);
+    public function show_familie_item_data($item_data, $cart_item) {
+        if (isset($cart_item['micinterart_adults'])) {
+            $item_data[] = ['key' => __('Erwachsene', 'micinterart'), 'value' => (int) $cart_item['micinterart_adults']];
+            $item_data[] = ['key' => __('Kinder', 'micinterart'), 'value' => (int) $cart_item['micinterart_children']];
+        }
+        return $item_data;
+    }
+
+    public function show_familie_cart_price($price_html, $cart_item, $cart_item_key) {
+        if (isset($cart_item['micinterart_adults'])) {
+            $total = $this->get_familie_line_total($cart_item);
+            if ($total !== null) {
+                return wc_price($total);
             }
         }
+        return $price_html;
+    }
 
-        if ($rabatt_betrag > 0) {
-            $cart->add_fee(__('Paarrabatt', 'micinterart'), -$rabatt_betrag, false);
+    public function lock_familie_cart_quantity($product_quantity, $cart_item_key, $cart_item) {
+        if (isset($cart_item['micinterart_adults'])) {
+            return '<span class="workshop-familie-quantity">' . (int) $cart_item['quantity'] . '</span>';
+        }
+        return $product_quantity;
+    }
+
+    public function lock_familie_blocks_quantity($editable, $product, $cart_item) {
+        if (is_array($cart_item) && isset($cart_item['micinterart_adults'])) {
+            return false;
+        }
+        return $editable;
+    }
+
+    public function save_familie_line_item($item, $cart_item_key, $values) {
+        if (isset($values['micinterart_adults'])) {
+            $item->add_meta_data(__('Erwachsene', 'micinterart'), (int) $values['micinterart_adults'], true);
+            $item->add_meta_data(__('Kinder', 'micinterart'), (int) $values['micinterart_children'], true);
         }
     }
-    
+
     /**
      * Lädt Checkout-Styles
      */
