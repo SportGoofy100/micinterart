@@ -251,6 +251,79 @@ wp_reset_postdata();
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
+.workshop-gallery-section {
+    margin: 40px 0;
+}
+
+.workshop-gallery-section h2 {
+    margin: 0 0 20px 0;
+}
+
+.workshop-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.workshop-gallery-item {
+    display: block;
+    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    aspect-ratio: 1;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.workshop-gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.workshop-gallery-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+}
+
+.workshop-lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(0,0,0,0.92);
+    align-items: center;
+    justify-content: center;
+}
+
+.workshop-lightbox.active { display: flex; }
+
+.workshop-lightbox img {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 8px;
+}
+
+.workshop-lightbox-btn {
+    position: absolute;
+    color: #fff;
+    font-size: 2.5em;
+    cursor: pointer;
+    user-select: none;
+    padding: 10px 20px;
+}
+
+.workshop-lightbox-close { top: 10px; right: 10px; }
+.workshop-lightbox-prev { left: 10px; top: 50%; transform: translateY(-50%); }
+.workshop-lightbox-next { right: 10px; top: 50%; transform: translateY(-50%); }
+
+@media (max-width: 768px) {
+    .workshop-gallery {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 10px;
+    }
+}
+
 .workshop-info-box {
     background: #f5f5f5;
     padding: 30px;
@@ -679,6 +752,29 @@ wp_reset_postdata();
                 <?php the_content(); ?>
             </div>
 
+            <?php
+            // WooCommerce-Produktgalerie (zusaetzliche Fotos zum Workshop)
+            $gallery_ids = $product->get_gallery_image_ids();
+            if (!empty($gallery_ids)) :
+            ?>
+                <section class="workshop-gallery-section">
+                    <h2><?php echo $is_en ? 'Impressions' : 'Impressionen'; ?></h2>
+                    <div class="workshop-gallery">
+                        <?php foreach ($gallery_ids as $gallery_id) :
+                            $full_url = wp_get_attachment_image_url($gallery_id, 'large');
+                            if (!$full_url) continue;
+                        ?>
+                            <a href="<?php echo esc_url($full_url); ?>" class="workshop-gallery-item">
+                                <?php echo wp_get_attachment_image($gallery_id, 'medium_large', false, [
+                                    'alt' => get_the_title($product_id),
+                                    'loading' => 'lazy',
+                                ]); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+            <?php endif; ?>
+
             <?php if ($ist_nach_absprache) : ?>
                 <div class="workshop-nach-absprache-box">
                     <h3><?php echo esc_html($nach_absprache_text); ?></h3>
@@ -943,6 +1039,49 @@ wp_reset_postdata();
 </main>
 
 <script>
+// Lightbox fuer die Workshop-Galerie
+(function() {
+    var items = Array.from(document.querySelectorAll('.workshop-gallery-item'));
+    if (!items.length) return;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'workshop-lightbox';
+    overlay.innerHTML = '<span class="workshop-lightbox-btn workshop-lightbox-close">&times;</span>' +
+        '<span class="workshop-lightbox-btn workshop-lightbox-prev">&#10094;</span>' +
+        '<img alt="">' +
+        '<span class="workshop-lightbox-btn workshop-lightbox-next">&#10095;</span>';
+    document.body.appendChild(overlay);
+
+    var img = overlay.querySelector('img');
+    var current = 0;
+
+    function show(i) {
+        current = (i + items.length) % items.length;
+        img.src = items[current].href;
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+    function close() {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    items.forEach(function(item, i) {
+        item.addEventListener('click', function(e) { e.preventDefault(); show(i); });
+    });
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay || e.target.classList.contains('workshop-lightbox-close')) close();
+    });
+    overlay.querySelector('.workshop-lightbox-prev').addEventListener('click', function(e) { e.stopPropagation(); show(current - 1); });
+    overlay.querySelector('.workshop-lightbox-next').addEventListener('click', function(e) { e.stopPropagation(); show(current + 1); });
+    document.addEventListener('keydown', function(e) {
+        if (!overlay.classList.contains('active')) return;
+        if (e.key === 'Escape') close();
+        if (e.key === 'ArrowRight') show(current + 1);
+        if (e.key === 'ArrowLeft') show(current - 1);
+    });
+})();
+
 // Floating CTA Button
 var ctaFloating = document.getElementById('workshop-cta-floating');
 if (ctaFloating) {
