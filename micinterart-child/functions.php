@@ -134,7 +134,13 @@ function micinterart_load_workshop_wc_includes() {
     if (file_exists($workshop_checkout_file)) {
         require_once $workshop_checkout_file;
     }
-    
+
+    // Gutscheine als Shop-Produkt (Code wird nach Bezahlung automatisch erzeugt)
+    $gutscheine_file = get_stylesheet_directory() . '/includes/gutscheine.php';
+    if (file_exists($gutscheine_file)) {
+        require_once $gutscheine_file;
+    }
+
 }
 add_action('after_setup_theme', 'micinterart_load_workshop_wc_includes', 20);
 

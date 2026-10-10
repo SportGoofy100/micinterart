@@ -279,6 +279,7 @@ wp_reset_postdata();
     height: 100%;
     object-fit: cover;
     display: block;
+    opacity: 1 !important;
 }
 
 .workshop-gallery-item:hover {
@@ -767,7 +768,10 @@ wp_reset_postdata();
                             <a href="<?php echo esc_url($full_url); ?>" class="workshop-gallery-item">
                                 <?php echo wp_get_attachment_image($gallery_id, 'medium_large', false, [
                                     'alt' => get_the_title($product_id),
-                                    'loading' => 'lazy',
+                                    'class' => 'skip-lazy',
+                                    'data-skip-lazy' => '1',
+                                    'data-no-lazy' => '1',
+                                    'loading' => 'eager',
                                 ]); ?>
                             </a>
                         <?php endforeach; ?>
