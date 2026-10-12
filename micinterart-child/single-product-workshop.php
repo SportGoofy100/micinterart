@@ -123,6 +123,10 @@ if (!empty($preis_info)) {
 $stock_quantity = $product->get_stock_quantity();
 $stock_status = $product->get_stock_status();
 $kann_anmelden = ($status !== 'beendet' && $status !== 'abgesagt' && $status !== 'ausgebucht' && $stock_status !== 'outofstock');
+$anmeldefrist_abgelaufen = micinterart_workshop_anmeldefrist_abgelaufen($product_id);
+if ($anmeldefrist_abgelaufen) {
+    $kann_anmelden = false;
+}
 
 // Uhrzeiten formatieren
 $uhrzeit_display = '';
@@ -966,6 +970,8 @@ wp_reset_postdata();
                             <p style="color: #666;"><?php echo $is_en ? 'All places are taken.' : 'Alle Plätze sind belegt.'; ?></p>
                         <?php elseif ($status === 'beendet') : ?>
                             <p style="color: #666;"><?php echo $is_en ? 'This workshop has already taken place.' : 'Dieser Workshop hat bereits stattgefunden.'; ?></p>
+                        <?php elseif ($anmeldefrist_abgelaufen) : ?>
+                            <p style="color: #666;"><?php echo $is_en ? 'The registration deadline has passed.' : 'Die Anmeldefrist ist leider abgelaufen.'; ?></p>
                         <?php elseif ($status === 'abgesagt') : ?>
                             <p style="color: #666;"><?php echo $is_en ? 'This workshop has been cancelled.' : 'Dieser Workshop wurde abgesagt.'; ?></p>
                         <?php endif; ?>

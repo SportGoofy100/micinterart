@@ -996,7 +996,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                 ?>
                                 
                                 <script>
-                                jQuery(document).ready(function($) {
+                                window.addEventListener("load", function() { jQuery(document).ready(function($) {
                                     // Das Feld 'thema' im CF7 Formular finden (Input oder Select)
                                     var $themaField = $('form.wpcf7-form [name="thema"], .wpcf7-form-control-wrap.thema input, .wpcf7-form-control-wrap.thema select');
                                     if (!$themaField.length) return;
@@ -1082,7 +1082,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                                         $themaField.val('').removeAttr('required');
                                         <?php endif; ?>
 
-                                    <?php endif; ?>
+                                }); });
                                 });
                                 </script>
                                 

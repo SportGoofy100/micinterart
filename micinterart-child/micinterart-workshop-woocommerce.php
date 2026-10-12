@@ -201,6 +201,7 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_max_teilnehmer',
             '_workshop_current_bookings',
             '_workshop_status',
+            '_workshop_anmeldefrist_wochen',
         ];
         
         foreach ($fields as $field) {
@@ -500,6 +501,19 @@ class Micinterart_Workshop_WooCommerce {
             ],
             'value' => $status ?: 'geplant',
         ]);
+        woocommerce_wp_select([
+            'id' => '_workshop_anmeldefrist_wochen',
+            'label' => __('Anmeldefrist', 'micinterart'),
+            'options' => [
+                '1' => '1 Woche vor dem Termin',
+                '2' => '2 Wochen vor dem Termin',
+                '3' => '3 Wochen vor dem Termin',
+                '4' => '4 Wochen vor dem Termin',
+            ],
+            'value' => micinterart_workshop_anmeldefrist_wochen($product_id),
+            'desc_tip' => true,
+            'description' => __('Bei Status "Anmeldung offen" ist die Anmeldung nur bis zu dieser Frist vor dem Workshop-Datum möglich.', 'micinterart'),
+        ]);
         
         // "Was dich erwartet" Felder
         $this->render_erwartet_fields($product_id);
@@ -598,6 +612,7 @@ class Micinterart_Workshop_WooCommerce {
             '_workshop_max_teilnehmer',
             '_workshop_current_bookings',
             '_workshop_status',
+            '_workshop_anmeldefrist_wochen',
         ];
 
         foreach ($fields as $field) {
@@ -652,7 +667,8 @@ class Micinterart_Workshop_WooCommerce {
             $registration_open = in_array($status, ['anmeldung_offen', 'fast_ausgebucht'], true);
             $has_places = $stock === null || $stock === '' || (int) $stock > 0;
 
-            $is_purchasable = $is_purchasable && $registration_open && $has_places;
+            $is_purchasable = $is_purchasable && $registration_open && $has_places
+                && !micinterart_workshop_anmeldefrist_abgelaufen($product->get_id());
         }
         return $is_purchasable;
     }
@@ -781,6 +797,38 @@ class Micinterart_Workshop_WooCommerce {
 
 // Die Initialisierung (get_instance) erfolgt in functions.php
 // und muss früh genug passieren, damit der Produkttyp registriert wird.
+
+/**
+ * Anmeldefrist in Wochen vor dem Workshop-Termin (Standard 3).
+ */
+function micinterart_workshop_anmeldefrist_wochen($product_id) {
+    $wochen = (int) get_post_meta($product_id, '_workshop_anmeldefrist_wochen', true);
+    return in_array($wochen, [1, 2, 3, 4], true) ? $wochen : 3;
+}
+
+/**
+ * Ist die Anmeldefrist abgelaufen? Nur relevant bei Workshops mit Datum
+ * und offener Anmeldung; in den letzten X Wochen vor dem Termin ist keine Anmeldung mehr möglich.
+ */
+function micinterart_workshop_anmeldefrist_abgelaufen($product_id) {
+    $status = get_post_meta($product_id, '_workshop_status', true);
+    if (!in_array($status, ['anmeldung_offen', 'fast_ausgebucht'], true)) {
+        return false;
+    }
+    $datum = get_post_meta($product_id, '_workshop_datum', true);
+    if (!$datum) {
+        return false;
+    }
+    try {
+        $tz = wp_timezone();
+        $termin = new DateTimeImmutable($datum, $tz);
+        $heute = new DateTimeImmutable('today', $tz);
+    } catch (Exception $e) {
+        return false;
+    }
+    $frist = $termin->setTime(0, 0)->modify('-' . micinterart_workshop_anmeldefrist_wochen($product_id) . ' weeks');
+    return $heute > $frist;
+}
 
 // Hilfsfunktion zum Prüfen ob ein Produkt ein Workshop ist
 function micinterart_wc_is_workshop_product($product) {
