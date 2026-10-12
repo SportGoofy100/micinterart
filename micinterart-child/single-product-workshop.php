@@ -1211,3 +1211,5 @@ document.querySelectorAll('.workshop-familie-form').forEach(function(form) {
 });
 
 </script>
+
+<?php get_footer();
