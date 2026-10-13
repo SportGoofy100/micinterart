@@ -170,8 +170,9 @@ $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : 
 
     <?php else : ?>
         
-        <div class="no-results">
-            <p><?php echo $is_en ? 'No artworks found.' : esc_html__('Keine Werke gefunden.', 'micinterart'); ?></p>
+        <div class="no-results werke-under-construction" style="text-align:center;padding:60px 20px;">
+            <h2><?php echo $is_en ? 'Under construction' : 'Im Aufbau'; ?></h2>
+            <p><?php echo $is_en ? 'The first artworks will appear here soon. Please check back later!' : 'Hier entstehen gerade die ersten Werke. Schau bald wieder vorbei!'; ?></p>
         </div>
         
     <?php endif; ?>
