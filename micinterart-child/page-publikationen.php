@@ -3,7 +3,7 @@
  * Template für die Seite "Publikationen" (Slug: publikationen)
  *
  * Zeigt PDFs aus der Mediathek nach Medien-Kategorie:
- * "Publikationen von ihr" und "Publikationen über sie" (includes/publikationen.php).
+ * "Meine Publikationen" (includes/publikationen.php); Artikel über die Künstlerin stehen als Text im Seiteneditor.
  *
  * @package Micinterart
  */
@@ -15,16 +15,7 @@ if (!defined('ABSPATH')) {
 get_header();
 $is_en = function_exists('micinterart_is_english') ? micinterart_is_english() : (function_exists('pll_current_language') && pll_current_language() === 'en');
 
-$sections = [
-    'von-ihr' => [
-        'title' => $is_en ? 'Publications by the artist' : 'Publikationen von ihr',
-        'empty' => $is_en ? 'Publications will follow soon.' : 'Publikationen folgen in Kürze.',
-    ],
-    'ueber-sie' => [
-        'title' => $is_en ? 'Publications about the artist' : 'Publikationen über sie',
-        'empty' => $is_en ? 'Articles will follow soon.' : 'Beiträge folgen in Kürze.',
-    ],
-];
+$pdfs = function_exists('micinterart_get_publikationen') ? micinterart_get_publikationen('von-ihr') : [];
 ?>
 <style>
 .publikationen-page { background: #fafafa; padding: 40px 20px 60px; }
@@ -42,6 +33,8 @@ $sections = [
 .publikation-info { padding: 14px 16px 18px; }
 .publikation-titel { font-weight: 600; line-height: 1.35; margin: 0 0 8px; }
 .publikation-link { font-size: 0.85em; color: var(--mic-gold-deep, #C48F00); text-transform: uppercase; letter-spacing: 1px; }
+.publikationen-text { max-width: 800px; line-height: 1.7; }
+.publikationen-text ul { padding-left: 1.2em; }
 .publikationen-empty { color: #666; font-style: italic; }
 @media (max-width: 600px) {
     .publikationen-page { padding: 20px 10px 40px; }
@@ -54,44 +47,45 @@ $sections = [
 
     <header class="page-header">
         <h1 class="page-title"><?php echo esc_html(get_the_title()); ?></h1>
-        <?php
-        while (have_posts()) {
-            the_post();
-            $intro = trim(get_the_content());
-            if ($intro !== '') {
-                echo '<div class="archive-description">' . apply_filters('the_content', $intro) . '</div>';
-            }
-        }
-        ?>
     </header>
 
-    <?php foreach ($sections as $slug => $section) :
-        $pdfs = function_exists('micinterart_get_publikationen') ? micinterart_get_publikationen($slug) : [];
-        ?>
-        <section class="publikationen-section">
-            <h2><?php echo esc_html($section['title']); ?></h2>
+    <section class="publikationen-section">
+        <h2><?php echo $is_en ? 'My publications' : 'Meine Publikationen'; ?></h2>
 
-            <?php if ($pdfs) : ?>
-                <div class="publikationen-grid">
-                    <?php foreach ($pdfs as $pdf) :
-                        $cover = wp_get_attachment_image($pdf->ID, 'medium', false, ['loading' => 'lazy', 'alt' => '']);
-                        ?>
-                        <a class="publikation-card" href="<?php echo esc_url(wp_get_attachment_url($pdf->ID)); ?>" target="_blank" rel="noopener">
-                            <div class="publikation-cover">
-                                <?php echo $cover ? $cover : '<span class="publikation-icon" aria-hidden="true">📄</span>'; ?>
-                            </div>
-                            <div class="publikation-info">
-                                <p class="publikation-titel"><?php echo esc_html(get_the_title($pdf)); ?></p>
-                                <span class="publikation-link"><?php echo $is_en ? 'Open PDF' : 'PDF öffnen'; ?> &rarr;</span>
-                            </div>
-                        </a>
-                    <?php endforeach; ?>
-                </div>
-            <?php else : ?>
-                <p class="publikationen-empty"><?php echo esc_html($section['empty']); ?></p>
-            <?php endif; ?>
-        </section>
-    <?php endforeach; ?>
+        <?php if ($pdfs) : ?>
+            <div class="publikationen-grid">
+                <?php foreach ($pdfs as $pdf) :
+                    $cover = wp_get_attachment_image($pdf->ID, 'medium', false, ['loading' => 'lazy', 'alt' => '']);
+                    ?>
+                    <a class="publikation-card" href="<?php echo esc_url(wp_get_attachment_url($pdf->ID)); ?>" target="_blank" rel="noopener">
+                        <div class="publikation-cover">
+                            <?php echo $cover ? $cover : '<span class="publikation-icon" aria-hidden="true">📄</span>'; ?>
+                        </div>
+                        <div class="publikation-info">
+                            <p class="publikation-titel"><?php echo esc_html(get_the_title($pdf)); ?></p>
+                            <span class="publikation-link"><?php echo $is_en ? 'Open PDF' : 'PDF öffnen'; ?> &rarr;</span>
+                        </div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        <?php else : ?>
+            <p class="publikationen-empty"><?php echo $is_en ? 'Publications will follow soon.' : 'Publikationen folgen in Kürze.'; ?></p>
+        <?php endif; ?>
+    </section>
+
+    <?php
+    // Artikel über die Künstlerin: Text aus dem Seiteneditor
+    while (have_posts()) {
+        the_post();
+        if (trim(get_the_content()) !== '') {
+            echo '<section class="publikationen-section publikationen-presse">';
+            echo '<h2>' . ($is_en ? 'In the press' : 'In der Presse') . '</h2>';
+            echo '<div class="publikationen-text">';
+            the_content();
+            echo '</div></section>';
+        }
+    }
+    ?>
 
 </main>
 

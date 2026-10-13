@@ -1,6 +1,6 @@
 <?php
 /**
- * Publikationen: Medien-Kategorie für PDFs (von ihr / über sie)
+ * Publikationen: Medien-Kategorie für PDFs 
  *
  * PDFs in der Mediathek bekommen die Kategorie "Publikationen"; die Seite
  * "Publikationen" (page-publikationen.php) listet sie automatisch.
@@ -29,14 +29,16 @@ function micinterart_register_publikation_taxonomy() {
         'rewrite'           => false,
     ]);
 
-    $terms = [
-        'von-ihr'   => 'Publikationen von ihr',
-        'ueber-sie' => 'Publikationen über sie',
-    ];
-    foreach ($terms as $slug => $name) {
-        if (!term_exists($slug, 'publikation_typ')) {
-            wp_insert_term($name, 'publikation_typ', ['slug' => $slug]);
-        }
+    // Nur ein Typ: die eigenen Publikationen (Artikel über die Künstlerin stehen als Text im Seiteneditor)
+    $term = get_term_by('slug', 'von-ihr', 'publikation_typ');
+    if (!$term) {
+        wp_insert_term('Meine Publikationen', 'publikation_typ', ['slug' => 'von-ihr']);
+    } elseif ($term->name !== 'Meine Publikationen') {
+        wp_update_term($term->term_id, 'publikation_typ', ['name' => 'Meine Publikationen']);
+    }
+    $alt = get_term_by('slug', 'ueber-sie', 'publikation_typ');
+    if ($alt) {
+        wp_delete_term($alt->term_id, 'publikation_typ');
     }
 }
 add_action('init', 'micinterart_register_publikation_taxonomy');
@@ -72,8 +74,7 @@ function micinterart_publikation_attachment_field($form_fields, $post) {
 
     $options = [
         ''          => '— keine —',
-        'von-ihr'   => 'Publikationen von ihr',
-        'ueber-sie' => 'Publikationen über sie',
+        'von-ihr'   => 'Meine Publikationen',
     ];
     $html = '<select name="attachments[' . (int) $post->ID . '][publikation_typ]">';
     foreach ($options as $slug => $label) {
@@ -95,7 +96,7 @@ function micinterart_publikation_attachment_save($post, $attachment) {
         $slug = sanitize_key($attachment['publikation_typ']);
         if ($slug === '') {
             wp_set_object_terms($post['ID'], [], 'publikation_typ');
-        } elseif (in_array($slug, ['von-ihr', 'ueber-sie'], true)) {
+        } elseif ($slug === 'von-ihr') {
             wp_set_object_terms($post['ID'], [$slug], 'publikation_typ');
         }
     }
@@ -107,18 +108,16 @@ add_filter('attachment_fields_to_save', 'micinterart_publikation_attachment_save
  * Sammelaktionen in der Mediathek (Listenansicht -> "Mehrfachauswahl").
  */
 function micinterart_publikation_bulk_actions($actions) {
-    $actions['publikation_von_ihr']   = 'Zuordnen: Publikationen von ihr';
-    $actions['publikation_ueber_sie'] = 'Zuordnen: Publikationen über sie';
-    $actions['publikation_keine']     = 'Publikation: Zuordnung entfernen';
+    $actions['publikation_von_ihr'] = 'Zuordnen: Meine Publikationen';
+    $actions['publikation_keine']   = 'Publikation: Zuordnung entfernen';
     return $actions;
 }
 add_filter('bulk_actions-upload', 'micinterart_publikation_bulk_actions');
 
 function micinterart_publikation_handle_bulk($redirect, $action, $ids) {
     $map = [
-        'publikation_von_ihr'   => 'von-ihr',
-        'publikation_ueber_sie' => 'ueber-sie',
-        'publikation_keine'     => '',
+        'publikation_von_ihr' => 'von-ihr',
+        'publikation_keine'   => '',
     ];
     if (!isset($map[$action]) || !current_user_can('upload_files')) {
         return $redirect;
