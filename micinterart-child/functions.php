@@ -19,6 +19,11 @@ if (file_exists($theme_setup_file)) {
 }
 
 // Shop-Startseite: Kachelbilder (Customizer)
+$publikationen_file = get_stylesheet_directory() . '/includes/publikationen.php';
+if (file_exists($publikationen_file)) {
+    require_once $publikationen_file;
+}
+
 $shop_tiles_file = get_stylesheet_directory() . '/includes/shop-tiles.php';
 if (file_exists($shop_tiles_file)) {
     require_once $shop_tiles_file;
