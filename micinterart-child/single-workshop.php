@@ -1194,6 +1194,7 @@ function micinterart_render_thema_erwartet_box($thema_id, $workshop_id) {
                     })();
                     </script>
                 <?php endif; ?>
+                <?php endif; // Workshop aktiv (nicht beendet/abgesagt) ?>
 
             </article>
 
