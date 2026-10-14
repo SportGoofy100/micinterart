@@ -23,10 +23,10 @@ jobs:
         run: |
           status=0
           while IFS= read -r -d '' file; do
-            out=$(php -l "$file" 2>&1)
-            if [ $? -ne 0 ]; then
+            if ! out=$(php -l "$file" 2>&1); then
               msg=$(echo "$out" | head -n 1 | tr -d '\r')
               echo "::error file=$file::$msg"
+              echo "$out"
               status=1
             fi
           done < <(find micinterart-child micinterart-gallery -name '*.php' -print0)
