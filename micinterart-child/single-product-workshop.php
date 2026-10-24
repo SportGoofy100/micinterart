@@ -989,11 +989,11 @@ wp_reset_postdata();
                         $rw_preis_formatted = $rw_preis ? ($is_en ? '€ ' . number_format($rw_preis, 2, '.', ',') : number_format($rw_preis, 2, ',', '.') . ' €') : '';
                         $rw_datum = get_post_meta($rw['id'], '_workshop_datum', true);
                         $rw_datum_formatted = $rw_datum ? date_i18n('d.m.Y', strtotime($rw_datum)) : '';
-                        $rw_image_url = get_the_post_thumbnail_url($rw['id'], 'medium');
+                        $rw_image_url = get_the_post_thumbnail_url($rw['id'], 'large');
                         if (!$rw_image_url && $rw_product) {
                             $rw_gallery_ids = $rw_product->get_gallery_image_ids();
                             if ($rw_gallery_ids) {
-                                $rw_image_url = wp_get_attachment_image_url($rw_gallery_ids[0], 'medium');
+                                $rw_image_url = wp_get_attachment_image_url($rw_gallery_ids[0], 'large');
                             }
                         }
                     ?>
