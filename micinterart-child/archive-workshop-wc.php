@@ -988,16 +988,19 @@ if ($is_en) {
     $intro_h2    = 'I invite you to my studio.';
     $intro_text  = 'This is the place where you can switch off your mind and just create. Whether you are treating yourself to a timeout, laughing with friends, spending a special evening as a couple, or giving your children an unforgettable day – I will guide you and ensure you feel comfortable from the very first moment. The materials, the cocktails, the wine, the snacks – I will take care of everything. You only need to bring yourself.';
     $intro_bye   = 'Come on by, I look forward to seeing you!';
+    $intro_offer = 'In my studio in Morsbach I offer acrylic and mixed media workshops, from palette-knife techniques to Art & Cocktails – for beginners and advanced.';
 } else {
     $intro_title = 'Workshops für jeden';
     $intro_h2    = 'Ich lade dich ein in mein Atelier.';
     $intro_text  = 'Hier ist der Ort, an dem du den Kopf ausschalten und einfach mal machen darfst. Ob du dir eine Auszeit gönnst, mit Freundinnen lachst, als Paar einen besonderen Abend verbringst oder deinen Kindern einen unvergesslichen Tag schenkst – ich begleite euch und sorge dafür, dass ihr euch vom ersten Moment an wohlfühlt. Die Materialien, die Cocktails, der Wein, die Snacks – darum kümmere ich mich. Ihr bringt nur euch mit.';
     $intro_bye   = 'Komm vorbei, ich freue mich auf dich!';
+    $intro_offer = 'In meinem Atelier in Morsbach biete ich Acryl- und Mixed-Media-Workshops an, von Spachteltechnik bis Art & Cocktails – für Anfänger und Fortgeschrittene.';
 }
 echo '<h1 class="workshops-page-title">' . esc_html($intro_title) . '</h1>';
 echo '<div class="workshops-intro">';
 echo '<h2>' . esc_html($intro_h2) . '</h2>';
 echo '<p>' . esc_html($intro_text) . '</p>';
+echo '<p>' . esc_html($intro_offer) . '</p>';
 echo '<p><strong>' . esc_html($intro_bye) . '</strong></p>';
 echo '</div>';
 
